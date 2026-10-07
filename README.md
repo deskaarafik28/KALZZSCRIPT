@@ -1,2 +1,0 @@
-# KALZZSCRIPT
-HI
