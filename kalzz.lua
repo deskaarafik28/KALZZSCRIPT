@@ -1,4 +1,4 @@
---[[ KALZZ HUB v14 FINAL | ALL FEATURES + Float Button | 1 Unified Hook ]]
+--[[ KALZZ HUB v15 FINAL | Float Button Fixed | All Features | 1 Hook ]]
 
 local Players    = game:GetService("Players")
 local RS         = game:GetService("ReplicatedStorage")
@@ -35,6 +35,112 @@ _G.KALZZ_CFG = CFG
 
 _G.KZ_ToFAimDir  = nil
 _G.KZ_VeilState  = { lookVector = nil, target = nil }
+
+-- ============================================================
+-- ⭐ FLOAT BUTTON (Standalone — di luar pcall UI)
+-- ============================================================
+local _KZFloat = (function()
+    local function getPT()
+        if gethui then local ok, h = pcall(gethui); if ok and h then return h end end
+        return CG
+    end
+
+    local FB_ref, FG_ref
+
+    local function build()
+        if FB_ref and FB_ref.Parent then return FB_ref end
+
+        local FG = Instance.new("ScreenGui")
+        FG.Name = "KZ_FloatBtn_"..tostring(os.time())
+        FG.ResetOnSpawn = false
+        FG.IgnoreGuiInset = true
+        FG.DisplayOrder = 2147483647
+        FG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        pcall(function() FG.Parent = getPT() end)
+        if not FG.Parent then FG.Parent = PG end
+
+        local b = Instance.new("TextButton", FG)
+        b.Size = UDim2.fromOffset(70, 70)
+        b.Position = UDim2.new(0, 20, 0.5, -35)
+        b.BackgroundTransparency = 1
+        b.Text = "KZ"
+        b.TextColor3 = Color3.fromRGB(240, 240, 250)
+        b.TextStrokeTransparency = 0.15
+        b.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        b.Font = Enum.Font.GothamBlack
+        b.TextSize = 32
+        b.AutoButtonColor = false
+        b.Active = true
+        b.Visible = false
+        b.ZIndex = 2147483647
+
+        local bgCircle = Instance.new("Frame", b)
+        bgCircle.Size = UDim2.fromOffset(54, 54)
+        bgCircle.Position = UDim2.new(0.5, -27, 0.5, -27)
+        bgCircle.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
+        bgCircle.BackgroundTransparency = 0.25
+        bgCircle.BorderSizePixel = 0
+        bgCircle.ZIndex = -1
+        Instance.new("UICorner", bgCircle).CornerRadius = UDim.new(1, 0)
+
+        local bgStroke = Instance.new("UIStroke", bgCircle)
+        bgStroke.Color = Color3.fromRGB(100, 140, 230)
+        bgStroke.Thickness = 2
+        bgStroke.Transparency = 0.35
+
+        local fD, fStart, fPos, fMoved = false, nil, nil, false
+        b.InputBegan:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                fD = true; fMoved = false; fStart = i.Position; fPos = b.Position
+            end
+        end)
+        UIS.InputChanged:Connect(function(i)
+            if fD and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+                local d = i.Position - fStart
+                if d.Magnitude > 8 then
+                    fMoved = true
+                    b.Position = UDim2.new(fPos.X.Scale, fPos.X.Offset + d.X, fPos.Y.Scale, fPos.Y.Offset + d.Y)
+                end
+            end
+        end)
+        UIS.InputEnded:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                if fD and not fMoved then
+                    if _G.KZ_ToggleUI then _G.KZ_ToggleUI() end
+                end
+                fD = false
+                task.delay(0.1, function() fMoved = false end)
+            end
+        end)
+
+        FB_ref = b
+        FG_ref = FG
+        return b
+    end
+
+    build()
+
+    return {
+        show = function(state)
+            if not FB_ref or not FB_ref.Parent then build() end
+            if FB_ref then FB_ref.Visible = state end
+        end,
+        get = function() return FB_ref end,
+        build = build,
+    }
+end)()
+
+_G.KZ_ShowFloat = _KZFloat.show
+_G.KZ_FloatButton = _KZFloat.get()
+
+-- Watchdog rebuild float kalau kehilangan
+task.spawn(function()
+    while true do
+        task.wait(2)
+        local fb = _KZFloat.get()
+        if not fb or not fb.Parent then _KZFloat.build() end
+    end
+end)
 
 -- ============================================================
 -- HELPERS
@@ -117,9 +223,7 @@ end)
 local RC = { tof=nil, veil=nil, parry=nil, fastvault=nil }
 pcall(function() RC.tof = RS.Remotes.Items["Twist of Fate"].Fire end)
 pcall(function() RC.parry = RS.Remotes.Items["Parrying Dagger"].parry end)
-pcall(function()
-    RC.veil = RS.Remotes.Killers.Veil.Spearthrow
-end)
+pcall(function() RC.veil = RS.Remotes.Killers.Veil.Spearthrow end)
 local function rescan()
     for _, o in ipairs(RS:GetDescendants()) do
         if o:IsA("RemoteEvent") then
@@ -138,7 +242,7 @@ task.delay(5, rescan)
 task.delay(15, rescan)
 
 -- ============================================================
--- VEIL — SOURCE ASLI
+-- VEIL SOURCE (auto-connect)
 -- ============================================================
 pcall(function()
     local VeilState = { target = nil, lookVector = nil, velHistory = {} }
@@ -353,11 +457,10 @@ pcall(function()
         end
     end
     Scheduler:Add("VeilAim", Veil_UpdateAimbot, 0.033)
-    print("[KZ] Veil logic loaded")
 end)
 
 -- ============================================================
--- TOF LOGIC
+-- TOF SOURCE
 -- ============================================================
 pcall(function()
     CFG.aim_on = CFG.aim_on ~= false or CFG.tof_on ~= false
@@ -365,9 +468,6 @@ pcall(function()
     CFG.aim_predict = CFG.aim_predict ~= false
     CFG.aim_zigzag = CFG.aim_zigzag == true
     CFG.tof_predict = CFG.tof_predict or 2.8
-
-    local FR
-    pcall(function() FR = RS.Remotes.Items["Twist of Fate"].Fire end)
 
     local AC = { dir = nil, tpart = nil, lastLock = 0 }
     local VH = {}
@@ -484,8 +584,6 @@ pcall(function()
         pcall(solA)
         _G.KZ_ToFAimDir = AC.dir
     end)
-
-    print("[KZ] ToF logic loaded")
 end)
 
 -- ============================================================
@@ -789,9 +887,9 @@ pcall(function()
             if CFG.gene_on and ScourgeActive and (CFG.gene_method or "") == "INSTANT" then
                 RefreshRefs()
                 if Check and Check.Visible and Goal and Line then
-                    local CG = tonumber(Goal.Rotation) or 0
-                    if LastGoal == nil then LastGoal = CG; InstantScourge()
-                    elseif math.abs(CG - LastGoal) > 1 then LastGoal = CG; InstantScourge() end
+                    local CGv = tonumber(Goal.Rotation) or 0
+                    if LastGoal == nil then LastGoal = CGv; InstantScourge()
+                    elseif math.abs(CGv - LastGoal) > 1 then LastGoal = CGv; InstantScourge() end
                 end
             else LastGoal = nil end
         end
@@ -1110,7 +1208,7 @@ local COL = {
     txF=Color3.fromRGB(110,110,125), acc=Color3.fromRGB(100,140,230), off=Color3.fromRGB(52,52,62),
 }
 local TR, TRP, TRC = 0.30, 0.30, 0.50
-local GUI, Main, FB
+local GUI, Main
 pcall(function()
     local function getParentTarget()
         if gethui then local ok, h = pcall(gethui); if ok and h then return h end end
@@ -1148,13 +1246,13 @@ pcall(function()
 
     local Title = Instance.new("TextLabel", Hdr)
     Title.Size = UDim2.new(1,-140,0,20); Title.Position = UDim2.fromOffset(18,8)
-    Title.BackgroundTransparency = 1; Title.Text = "KALZZ HUB v14"
+    Title.BackgroundTransparency = 1; Title.Text = "KALZZ HUB v15"
     Title.TextColor3 = COL.tx; Title.Font = Enum.Font.GothamBold; Title.TextSize = 14
     Title.TextXAlignment = Enum.TextXAlignment.Left; Title.ZIndex = 12
 
     local Sub = Instance.new("TextLabel", Hdr)
     Sub.Size = UDim2.new(1,-140,0,14); Sub.Position = UDim2.fromOffset(18,28)
-    Sub.BackgroundTransparency = 1; Sub.Text = "1 Hook All Features + Float"
+    Sub.BackgroundTransparency = 1; Sub.Text = "Float Button Fixed | 1 Hook"
     Sub.TextColor3 = COL.txF; Sub.Font = Enum.Font.Gotham; Sub.TextSize = 10
     Sub.TextXAlignment = Enum.TextXAlignment.Left; Sub.ZIndex = 12
 
@@ -1467,8 +1565,11 @@ pcall(function()
     TMisc:Btn({Title="Print Remote Cache", Callback=function()
         print("[KZ] ToF:", RC.tof~=nil, "Veil:", RC.veil~=nil, "Parry:", RC.parry~=nil, "FV:", RC.fastvault~=nil)
     end})
+    TMisc:Btn({Title="Show Float Button", Callback=function()
+        if _G.KZ_ShowFloat then _G.KZ_ShowFloat(true) end
+    end})
 
-    local CONFIG_FILE = "kalzz_v14.json"
+    local CONFIG_FILE = "kalzz_v15.json"
     local hasFS = (type(writefile)=="function") and (type(readfile)=="function") and (type(isfile)=="function")
     TCfg:Sec("Config File")
     TCfg:Btn({Title="Save Config", Callback=function()
@@ -1494,85 +1595,27 @@ pcall(function()
 
     W:Show("Survi")
 
-    -- ==========================================
-    -- FLOAT BUTTON (KZ)
-    -- ==========================================
-    local FG = Instance.new("ScreenGui")
-    FG.Name = "KZ_Float_"..tostring(os.time())
-    FG.ResetOnSpawn = false
-    FG.IgnoreGuiInset = true
-    FG.DisplayOrder = 2147483647
-    pcall(function() FG.Parent = getParentTarget() end)
-    if not FG.Parent then FG.Parent = PG end
-
-    FB = Instance.new("TextButton", FG)
-    FB.Size = UDim2.fromOffset(70, 70)
-    FB.Position = UDim2.new(0, 20, 0.5, -35)
-    FB.BackgroundTransparency = 1
-    FB.Text = "KZ"
-    FB.TextColor3 = Color3.fromRGB(240, 240, 250)
-    FB.TextStrokeTransparency = 0.15
-    FB.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    FB.Font = Enum.Font.GothamBlack
-    FB.TextSize = 32
-    FB.AutoButtonColor = false
-    FB.Active = true
-    FB.Visible = false
-    FB.ZIndex = 2147483647
-
-    local bgCircle = Instance.new("Frame", FB)
-    bgCircle.Size = UDim2.fromOffset(54, 54)
-    bgCircle.Position = UDim2.new(0.5, -27, 0.5, -27)
-    bgCircle.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
-    bgCircle.BackgroundTransparency = 0.25
-    bgCircle.BorderSizePixel = 0
-    bgCircle.ZIndex = -1
-    Instance.new("UICorner", bgCircle).CornerRadius = UDim.new(1, 0)
-    local bgStroke = Instance.new("UIStroke", bgCircle)
-    bgStroke.Color = Color3.fromRGB(100, 140, 230)
-    bgStroke.Thickness = 2
-    bgStroke.Transparency = 0.35
-
+    -- ✅ ToggleUI function
     local function toggleUI()
         if Main.Visible then
             Main.Visible = false
-            FB.Visible = true
+            if _G.KZ_ShowFloat then _G.KZ_ShowFloat(true) end
         else
             Main.Visible = true
-            FB.Visible = false
+            if _G.KZ_ShowFloat then _G.KZ_ShowFloat(false) end
         end
     end
     _G.KZ_ToggleUI = toggleUI
 
-    local fbDrag, fbStart, fbPos, fbMoved = false, nil, nil, false
-    FB.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            fbDrag = true
-            fbMoved = false
-            fbStart = i.Position
-            fbPos = FB.Position
-        end
+    -- Minimize / Close → show float
+    MinBtn.MouseButton1Click:Connect(function()
+        Main.Visible = false
+        if _G.KZ_ShowFloat then _G.KZ_ShowFloat(true) end
     end)
-    UIS.InputChanged:Connect(function(i)
-        if fbDrag and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-            local d = i.Position - fbStart
-            if d.Magnitude > 8 then
-                fbMoved = true
-                FB.Position = UDim2.new(fbPos.X.Scale, fbPos.X.Offset + d.X, fbPos.Y.Scale, fbPos.Y.Offset + d.Y)
-            end
-        end
+    ClsBtn.MouseButton1Click:Connect(function()
+        Main.Visible = false
+        if _G.KZ_ShowFloat then _G.KZ_ShowFloat(true) end
     end)
-    UIS.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            if fbDrag and not fbMoved then toggleUI() end
-            fbDrag = false
-            task.delay(0.1, function() fbMoved = false end)
-        end
-    end)
-
-    -- MINIMIZE + CLOSE -> show float
-    MinBtn.MouseButton1Click:Connect(function() Main.Visible=false; FB.Visible=true end)
-    ClsBtn.MouseButton1Click:Connect(function() Main.Visible=false; FB.Visible=true end)
 
     Scheduler:Add("UI_Watchdog", function()
         if not GUI or not GUI.Parent then
@@ -1598,9 +1641,9 @@ UIS.InputBegan:Connect(function(i, g)
 end)
 
 print("==========================================")
-print("[KALZZ HUB v14 FINAL]")
-print("Float button: KZ (drag + click toggle)")
-print("Keybinds: V=ToF | B=Veil | P=Parry | RShift=UI")
-print("All features: ToF, Veil, Parry, Gen, Vault, ESP, Alert, Stun")
-print("Hook: 1 unified (AntiKick + ToF + Veil)")
+print("[KALZZ HUB v15 FINAL]")
+print("Float button   : standalone (di luar pcall)")
+print("Global API     : _G.KZ_ShowFloat(state)")
+print("Global API     : _G.KZ_ToggleUI()")
+print("Keybinds       : V=ToF | B=Veil | P=Parry | RShift=UI")
 print("==========================================")
