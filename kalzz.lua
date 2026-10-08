@@ -1,60 +1,135 @@
---[[ KALZZ HUB v12 FINAL | 1 Hook | ToF + Veil + AntiKick | All Features ]]
+--[[ KALZZ HUB v13 FINAL | ALL FEATURES | 1 Unified Hook | ToF + Veil Source Asli ]]
 
-local P    = game:GetService("Players")
-local RS   = game:GetService("ReplicatedStorage")
-local RSvc = game:GetService("RunService")
-local UIS  = game:GetService("UserInputService")
-local WS   = game:GetService("Workspace")
-local L    = game:GetService("Lighting")
-local TS   = game:GetService("TweenService")
-local CG   = game:GetService("CoreGui")
-local LP   = P.LocalPlayer
-local PG   = LP:WaitForChild("PlayerGui")
-local Cam  = WS.CurrentCamera
+local Players    = game:GetService("Players")
+local RS         = game:GetService("ReplicatedStorage")
+local RSvc       = game:GetService("RunService")
+local UIS        = game:GetService("UserInputService")
+local Workspace  = game:GetService("Workspace")
+local Lighting   = game:GetService("Lighting")
+local TS         = game:GetService("TweenService")
+local CG         = game:GetService("CoreGui")
+local LP         = Players.LocalPlayer
+local PG         = LP:WaitForChild("PlayerGui")
+local Camera     = Workspace.CurrentCamera
 
-local INV = "dCYTep9cY"
-local URL = "https://discord.gg/"..INV
-
--- ============================================
+-- ============================================================
 -- CONFIG
--- ============================================
-local DEF = {
-    gene_on=false, gene_method="SUCCESS",
-    fast_vault=true,
-    parry_on=true, parry_radius=14, parry_sensitive=200,
-    parry_aggro=true, parry_circle=true,
+-- ============================================================
+local CFG = _G.KALZZ_CFG or {
     -- ToF
-    tof_on=true, tof_fov=500, tof_predict=2.8,
+    tof_on = true, aim_on = true, aim_fov = 500,
+    aim_predict = true, aim_zigzag = false, tof_predict = 2.8,
     -- Veil
-    veil_on=true, veil_fov=320, veil_predict=2.8,
+    veil_on = true, veil_fov = 320, veil_maxdist = 500,
+    veil_predict = 2.8, veil_speed = 165, veil_grav = 103,
+    veil_aura_speed = 165, veil_aura_grav = 96.5, veil_lead = 1.4,
+    veil_show_fov = true, veil_show_tracker = true,
+    -- Parry
+    parry_on = true, parry_radius = 14, parry_sensitive = 200,
+    parry_aggro = true, parry_circle = true,
+    -- Auto Gen
+    gene_on = false, gene_method = "SUCCESS",
+    -- Fast Vault
+    fast_vault = true,
+    -- ESP
+    esp_k = true, esp_s = true, esp_g = true, esp_out = false, esp_range = 5000,
     -- Misc
-    fov_lock_on=true, fov_lock_value=120,
-    ambient_on=true, boost_fps=true,
-    esp_k=true, esp_s=true, esp_g=true, esp_out=false, esp_range=5000,
-    alert=true, stun_indicator=true,
+    fov_lock_on = true, fov_lock_value = 120,
+    ambient_on = true, boost_fps = true,
+    alert = true, stun_indicator = true,
 }
-local CFG = _G.KALZZ_CFG or {}
-for k,v in pairs(DEF) do if CFG[k]==nil then CFG[k]=v end end
 _G.KALZZ_CFG = CFG
 
--- ============================================
--- STATE
--- ============================================
-_G.KZ_ToFAimDir = nil
-_G.KZ_ToFLockedName = ""
-_G.KZ_VeilState = { lookVector = nil, target = nil }
+-- ============================================================
+-- GLOBAL STATE (auto-connect ke unified hook)
+-- ============================================================
+_G.KZ_ToFAimDir  = nil
+_G.KZ_VeilState  = { lookVector = nil, target = nil }
 
--- ============================================
--- REMOTE CACHE (dengan fallback)
--- ============================================
-local RC = { tof=nil, veil=nil, parry=nil, fastvault=nil }
-pcall(function()
-    RC.tof = RS.Remotes.Items["Twist of Fate"].Fire
+-- ============================================================
+-- HELPERS
+-- ============================================================
+local _W = { WISNU_ACCENT = Color3.fromRGB(100, 140, 230) }
+
+local PID = {
+    ["122812055447896"]=1,["133963973694098"]=1,["117042998468241"]=1,["135002183282873"]=1,
+    ["121216847022485"]=1,["132817836308238"]=1,["129784271201071"]=1,["82666958311998"]=1,
+    ["78432063483146"]=1,["118907603246885"]=1,["139369275981139"]=1,["110355011987939"]=1,
+    ["111920872708571"]=1,["105374834496520"]=1,["138720291317243"]=1,["106871536134254"]=1,
+    ["130593238885843"]=1,["115244153053858"]=1,["74968262036854"]=1,["113255068724446"]=1,
+    ["98163597193511"]=1,["80411309607666"]=1,["101344487600812"]=1,
+}
+
+local function rtp(m)
+    return m and (m:FindFirstChild("HumanoidRootPart") or m:FindFirstChild("RootPart") or m:FindFirstChildWhichIsA("BasePart") or m.PrimaryPart)
+end
+
+local function isKillerChar(ch)
+    if not ch or not ch.Parent then return false end
+    local pl = Players:GetPlayerFromCharacter(ch)
+    if not pl then return false end
+    local role = ch:GetAttribute("Role") or pl:GetAttribute("Role")
+    if type(role) == "string" then
+        local r = role:lower()
+        if r:find("killer") then return true end
+        if r:find("survivor") then return false end
+    end
+    if pl.Team and pl.Team.Name then
+        local t = pl.Team.Name:lower()
+        if t:find("killer") then return true end
+        if t:find("survivor") then return false end
+    end
+    return false
+end
+_G.KZ_isKiller = isKillerChar
+
+local function GetRole()
+    local ch = LP.Character
+    if not ch then return "Survivor" end
+    local role = ch:GetAttribute("Role") or LP:GetAttribute("Role")
+    if type(role) == "string" and role:lower():find("killer") then return "Killer" end
+    if LP.Team and LP.Team.Name:lower():find("killer") then return "Killer" end
+    return "Survivor"
+end
+
+local VD = setmetatable({}, {
+    __index = function(_, k)
+        if k == "VeilEnabled"          then return CFG.veil_on end
+        if k == "VeilFOV"              then return CFG.veil_fov end
+        if k == "VeilMaxDist"          then return CFG.veil_maxdist end
+        if k == "VeilAutoPredict"      then return CFG.veil_predict ~= false end
+        if k == "VeilLeadMultiplier"   then return CFG.veil_lead end
+        if k == "VeilSpearSpeed"       then return CFG.veil_speed end
+        if k == "VeilGravity"          then return CFG.veil_grav end
+        if k == "VeilAuraSpearSpeed"   then return CFG.veil_aura_speed end
+        if k == "VeilAuraSpearGravity" then return CFG.veil_aura_grav end
+        if k == "VeilShowFOV"          then return CFG.veil_show_fov end
+        if k == "VeilShowTracker"      then return CFG.veil_show_tracker end
+        return nil
+    end
+})
+
+local Scheduler = { _tasks = {} }
+function Scheduler:Add(name, fn, interval)
+    self._tasks[name] = { fn = fn, interval = interval or 0.03, last = 0 }
+end
+RSvc.Heartbeat:Connect(function()
+    local now = os.clock()
+    for _, t in pairs(Scheduler._tasks) do
+        if now - t.last >= t.interval then
+            t.last = now
+            pcall(t.fn)
+        end
+    end
 end)
+
+-- Remote Cache
+local RC = { tof=nil, veil=nil, parry=nil, fastvault=nil }
+pcall(function() RC.tof = RS.Remotes.Items["Twist of Fate"].Fire end)
+pcall(function() RC.parry = RS.Remotes.Items["Parrying Dagger"].parry end)
 pcall(function()
     RC.veil = RS.Remotes.Killers.Veil.Spearthrow
 end)
--- fallback scan
 local function rescan()
     for _, o in ipairs(RS:GetDescendants()) do
         if o:IsA("RemoteEvent") then
@@ -68,196 +143,408 @@ local function rescan()
         end
     end
 end
-pcall(function() RC.parry = RS.Remotes.Items["Parrying Dagger"].parry end)
 rescan()
 task.delay(5, rescan)
 task.delay(15, rescan)
 
--- ============================================
--- HELPERS
--- ============================================
-local PID = {
-    ["122812055447896"]=1,["133963973694098"]=1,["117042998468241"]=1,["135002183282873"]=1,
-    ["121216847022485"]=1,["132817836308238"]=1,["129784271201071"]=1,["82666958311998"]=1,
-    ["78432063483146"]=1,["118907603246885"]=1,["139369275981139"]=1,["110355011987939"]=1,
-    ["111920872708571"]=1,["105374834496520"]=1,["138720291317243"]=1,["106871536134254"]=1,
-    ["130593238885843"]=1,["115244153053858"]=1,["74968262036854"]=1,["113255068724446"]=1,
-    ["98163597193511"]=1,["80411309607666"]=1,["101344487600812"]=1,
-}
-local function rtp(m) if not m then return nil end return m:FindFirstChild("HumanoidRootPart") or m:FindFirstChild("RootPart") or m:FindFirstChildWhichIsA("BasePart") end
-local function isKiller(p)
-    if not p or p == LP or not p.Character then return false end
-    local role = p.Character:GetAttribute("Role") or p:GetAttribute("Role")
-    if type(role) == "string" then
-        local r = role:lower()
-        if r:find("killer") then return true end
-        if r:find("survivor") then return false end
+-- ============================================================
+-- VEIL — SOURCE ASLI (227 lines) + auto-connect
+-- ============================================================
+pcall(function()
+    local VeilState = { target = nil, lookVector = nil, velHistory = {} }
+    local VeilVisuals = {}
+    pcall(function()
+        if typeof(Drawing) ~= "table" or not Drawing.new then return end
+        local V = VeilVisuals
+        local ACCENT = _W.WISNU_ACCENT
+        local BLACK  = Color3.fromRGB(0, 0, 0)
+        local WHITE  = Color3.fromRGB(255, 255, 255)
+        V.FOVOuterRing = Drawing.new("Circle"); V.FOVOuterRing.Color = BLACK; V.FOVOuterRing.Thickness = 3; V.FOVOuterRing.Filled = false; V.FOVOuterRing.Transparency = 0.4; V.FOVOuterRing.Visible = false; V.FOVOuterRing.NumSides = 90
+        V.FOVMainRing = Drawing.new("Circle"); V.FOVMainRing.Color = ACCENT; V.FOVMainRing.Thickness = 1.6; V.FOVMainRing.Filled = false; V.FOVMainRing.Transparency = 0.85; V.FOVMainRing.Visible = false; V.FOVMainRing.NumSides = 90
+        V.FOVInnerRing = Drawing.new("Circle"); V.FOVInnerRing.Color = ACCENT; V.FOVInnerRing.Thickness = 1; V.FOVInnerRing.Filled = false; V.FOVInnerRing.Transparency = 0.35; V.FOVInnerRing.Visible = false; V.FOVInnerRing.NumSides = 90
+        V.FOVCrossLines = {}; for i = 1, 4 do local line = Drawing.new("Line"); line.Color = WHITE; line.Thickness = 1.5; line.Transparency = 0.9; line.Visible = false; V.FOVCrossLines[i] = line end
+        V.FOVTicks = {}; for i = 1, 4 do local line = Drawing.new("Line"); line.Color = ACCENT; line.Thickness = 2.2; line.Transparency = 0.95; line.Visible = false; V.FOVTicks[i] = line end
+        V.TrackerOuterRing = Drawing.new("Circle"); V.TrackerOuterRing.Color = BLACK; V.TrackerOuterRing.Thickness = 3; V.TrackerOuterRing.Filled = false; V.TrackerOuterRing.Transparency = 0.3; V.TrackerOuterRing.NumSides = 40; V.TrackerOuterRing.Visible = false
+        V.TrackerMainRing = Drawing.new("Circle"); V.TrackerMainRing.Color = ACCENT; V.TrackerMainRing.Thickness = 1.6; V.TrackerMainRing.Filled = false; V.TrackerMainRing.Transparency = 0.9; V.TrackerMainRing.NumSides = 40; V.TrackerMainRing.Visible = false
+        V.TrackerDotFill = Drawing.new("Circle"); V.TrackerDotFill.Color = ACCENT; V.TrackerDotFill.Thickness = 1; V.TrackerDotFill.Filled = true; V.TrackerDotFill.Transparency = 0.9; V.TrackerDotFill.Radius = 3; V.TrackerDotFill.NumSides = 20; V.TrackerDotFill.Visible = false
+        V.TrackerDotOutline = Drawing.new("Circle"); V.TrackerDotOutline.Color = BLACK; V.TrackerDotOutline.Thickness = 3; V.TrackerDotOutline.Filled = false; V.TrackerDotOutline.Transparency = 0.3; V.TrackerDotOutline.Radius = 6; V.TrackerDotOutline.NumSides = 20; V.TrackerDotOutline.Visible = false
+        V.TrackerLine = Drawing.new("Line"); V.TrackerLine.Color = ACCENT; V.TrackerLine.Thickness = 1.5; V.TrackerLine.Transparency = 0.6; V.TrackerLine.Visible = false
+    end)
+    local function Veil_IsSurvivorVeil(p)
+        if not p or not p.Team or not p.Team.Name then return false end
+        return string.find(string.lower(p.Team.Name), "survivor", 1, true) ~= nil
     end
-    if p.Team and p.Team.Name then
-        local t = p.Team.Name:lower()
-        if t:find("killer") then return true end
-        if t:find("survivor") then return false end
+    local function Veil_solvePitch(p, d, dy)
+        d = math.max(d, 0.1)
+        local s2 = p.v0 * p.v0
+        local root = s2 * s2 - p.g * (p.g * d * d + 2 * dy * s2)
+        if root < 0 then root = 0 end
+        local tanTheta = (s2 - math.sqrt(root)) / (p.g * d)
+        local theta = math.atan(tanTheta)
+        local t = d / (p.v0 * math.cos(theta))
+        return theta, t
     end
-    return false
-end
-local function isKillerChar(ch)
-    if not ch or not ch.Parent then return false end
-    local pl = P:GetPlayerFromCharacter(ch)
-    if not pl then return false end
-    return isKiller(pl)
-end
-local function getRoot(m)
-    return m and (m:FindFirstChild("HumanoidRootPart") or m.PrimaryPart)
-end
-_G.KZ_isKiller = isKillerChar
-
-local Sched = { _t = {} }
-function Sched:Add(name, fn, hz) self._t[name] = { fn = fn, interval = 1/(hz or 30), last = 0 } end
-RSvc.Heartbeat:Connect(function()
-    local now = os.clock()
-    for _, t in pairs(Sched._t) do
-        if now - t.last >= t.interval then t.last = now; pcall(t.fn) end
+    local function Veil_getCharacterVelocity(char)
+        local root = char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso"))
+        if not root or not root:IsA("BasePart") then return Vector3.zero end
+        local now = os.clock()
+        local last = VeilState.velHistory[char]
+        local measured = Vector3.zero
+        if last and now - last.t > 0.02 then
+            measured = (root.Position - last.pos) / (now - last.t)
+            if measured.Magnitude > 150 then measured = last.smooth or Vector3.zero end
+        end
+        local smooth = last and last.smooth or measured
+        smooth = smooth:Lerp(measured, 0.65)
+        VeilState.velHistory[char] = { pos = root.Position, t = now, smooth = smooth }
+        if smooth.Magnitude < 1 then return Vector3.zero end
+        return Vector3.new(smooth.X, 0, smooth.Z)
     end
-end)
-
-local COL = {
-    bg=Color3.fromRGB(15,15,18), panel=Color3.fromRGB(20,20,24), side=Color3.fromRGB(17,17,21),
-    card=Color3.fromRGB(26,26,32), tabOn=Color3.fromRGB(38,38,46), brd=Color3.fromRGB(48,48,56),
-    brdS=Color3.fromRGB(38,38,46), tx=Color3.fromRGB(240,240,245), txD=Color3.fromRGB(160,160,175),
-    txF=Color3.fromRGB(110,110,125), acc=Color3.fromRGB(100,140,230), off=Color3.fromRGB(52,52,62),
-}
-local TR, TRP, TRC = 0.30, 0.30, 0.50
-
--- ============================================
--- AIM LOOP — ToF + Veil (source asli)
--- ============================================
-local function getClosest(wantKiller, fov)
-    if not Cam then Cam = WS.CurrentCamera end
-    if not Cam then return nil end
-    local center = Cam.ViewportSize / 2
-    local best, bestD = nil, fov
-    for _, p in ipairs(P:GetPlayers()) do
-        if p ~= LP and p.Character then
-            local k = isKiller(p)
-            if (wantKiller and k) or (not wantKiller and not k) then
-                local hum = p.Character:FindFirstChildOfClass("Humanoid")
-                local root = getRoot(p.Character)
-                if hum and hum.Health > 0 and root then
-                    local sp, on = Cam:WorldToViewportPoint(root.Position)
-                    if on and sp.Z > 0 then
-                        local d = (Vector2.new(sp.X, sp.Y) - center).Magnitude
-                        if d < bestD then bestD = d; best = root end
+    Players.PlayerRemoving:Connect(function(p)
+        if p.Character then VeilState.velHistory[p.Character] = nil end
+    end)
+    local function Veil_HideFOV()
+        local V = VeilVisuals
+        local OFF = Vector2.new(-9999, -9999)
+        if V.FOVOuterRing then V.FOVOuterRing.Visible = false; V.FOVOuterRing.Position = OFF; V.FOVOuterRing.Radius = 0; V.FOVOuterRing.Transparency = 1 end
+        if V.FOVMainRing then V.FOVMainRing.Visible = false; V.FOVMainRing.Position = OFF; V.FOVMainRing.Radius = 0; V.FOVMainRing.Transparency = 1 end
+        if V.FOVInnerRing then V.FOVInnerRing.Visible = false; V.FOVInnerRing.Position = OFF; V.FOVInnerRing.Radius = 0; V.FOVInnerRing.Transparency = 1 end
+        if V.FOVCrossLines then for _, s in ipairs(V.FOVCrossLines) do s.Visible = false; s.From = OFF; s.To = OFF end end
+        if V.FOVTicks then for _, s in ipairs(V.FOVTicks) do s.Visible = false; s.From = OFF; s.To = OFF end end
+    end
+    local function Veil_HideTracker()
+        local V = VeilVisuals
+        local OFF = Vector2.new(-9999, -9999)
+        if V.TrackerOuterRing then V.TrackerOuterRing.Visible = false; V.TrackerOuterRing.Position = OFF; V.TrackerOuterRing.Radius = 0; V.TrackerOuterRing.Transparency = 1 end
+        if V.TrackerMainRing then V.TrackerMainRing.Visible = false; V.TrackerMainRing.Position = OFF; V.TrackerMainRing.Radius = 0; V.TrackerMainRing.Transparency = 1 end
+        if V.TrackerDotFill then V.TrackerDotFill.Visible = false; V.TrackerDotFill.Position = OFF; V.TrackerDotFill.Radius = 0 end
+        if V.TrackerDotOutline then V.TrackerDotOutline.Visible = false; V.TrackerDotOutline.Position = OFF; V.TrackerDotOutline.Radius = 0 end
+        if V.TrackerLine then V.TrackerLine.Visible = false; V.TrackerLine.From = OFF; V.TrackerLine.To = OFF end
+    end
+    local function Veil_HideAllVisuals() Veil_HideFOV(); Veil_HideTracker() end
+    local function Veil_UpdateFOVVisuals(center)
+        local V = VeilVisuals
+        if not V.FOVOuterRing then return end
+        local radius = VD.VeilFOV or 150
+        local t = tick()
+        local pulse = (math.sin(t * 3) + 1) * 0.5
+        local slowPulse = (math.sin(t * 1.2) + 1) * 0.5
+        V.FOVOuterRing.Position = center; V.FOVOuterRing.Radius = radius + 2; V.FOVOuterRing.Transparency = 0.3 + pulse * 0.15; V.FOVOuterRing.Visible = true
+        V.FOVMainRing.Position = center; V.FOVMainRing.Radius = radius; V.FOVMainRing.Transparency = 0.7 + pulse * 0.25; V.FOVMainRing.Visible = true
+        V.FOVInnerRing.Position = center; V.FOVInnerRing.Radius = radius - 10; V.FOVInnerRing.Transparency = 0.25 + slowPulse * 0.2; V.FOVInnerRing.Visible = true
+        local gap, armLen = 4, 12
+        V.FOVCrossLines[1].From = Vector2.new(center.X, center.Y - gap); V.FOVCrossLines[1].To = Vector2.new(center.X, center.Y - gap - armLen); V.FOVCrossLines[1].Visible = true
+        V.FOVCrossLines[2].From = Vector2.new(center.X, center.Y + gap); V.FOVCrossLines[2].To = Vector2.new(center.X, center.Y + gap + armLen); V.FOVCrossLines[2].Visible = true
+        V.FOVCrossLines[3].From = Vector2.new(center.X - gap, center.Y); V.FOVCrossLines[3].To = Vector2.new(center.X - gap - armLen, center.Y); V.FOVCrossLines[3].Visible = true
+        V.FOVCrossLines[4].From = Vector2.new(center.X + gap, center.Y); V.FOVCrossLines[4].To = Vector2.new(center.X + gap + armLen, center.Y); V.FOVCrossLines[4].Visible = true
+        local tickLen = 9
+        for i = 1, 4 do
+            local angle = (i - 1) * math.pi / 2
+            local dirX, dirY = math.cos(angle), math.sin(angle)
+            V.FOVTicks[i].From = Vector2.new(center.X + dirX * radius, center.Y + dirY * radius)
+            V.FOVTicks[i].To = Vector2.new(center.X + dirX * (radius - tickLen), center.Y + dirY * (radius - tickLen))
+            V.FOVTicks[i].Visible = true
+        end
+    end
+    local function Veil_UpdateTrackerVisuals(targetScreenPos, dist)
+        local V = VeilVisuals
+        if not V.TrackerOuterRing then return end
+        local t = tick()
+        local pulse = (math.sin(t * 4) + 1) * 0.5
+        local baseRadius = math.clamp(1000 / math.max(dist, 1), 20, 48)
+        V.TrackerOuterRing.Position = targetScreenPos; V.TrackerOuterRing.Radius = baseRadius + 3; V.TrackerOuterRing.Transparency = 0.25 + pulse * 0.15; V.TrackerOuterRing.Visible = true
+        V.TrackerMainRing.Position = targetScreenPos; V.TrackerMainRing.Radius = baseRadius; V.TrackerMainRing.Transparency = 0.75 + pulse * 0.2; V.TrackerMainRing.Visible = true
+        V.TrackerDotFill.Position = targetScreenPos; V.TrackerDotFill.Radius = 2.5 + pulse * 1.2; V.TrackerDotFill.Transparency = 0.85 + pulse * 0.15; V.TrackerDotFill.Visible = true
+        V.TrackerDotOutline.Position = targetScreenPos; V.TrackerDotOutline.Radius = 5 + pulse * 1.5; V.TrackerDotOutline.Transparency = 0.35; V.TrackerDotOutline.Visible = true
+    end
+    local function Veil_UpdateAimbot()
+        if GetRole() ~= "Killer" then
+            VeilState.target = nil; VeilState.lookVector = nil
+            Veil_HideAllVisuals()
+            _G.KZ_VeilState.lookVector = nil
+            return
+        end
+        local cam = Workspace.CurrentCamera
+        if not cam then return end
+        local center = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y / 2)
+        if VD.VeilShowFOV and VD.VeilEnabled then Veil_UpdateFOVVisuals(center)
+        else Veil_HideFOV() end
+        if not VD.VeilEnabled then
+            VeilState.target = nil; VeilState.lookVector = nil; Veil_HideTracker()
+            _G.KZ_VeilState.lookVector = nil
+            return
+        end
+        local char = LP.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        local nearest, nearestPart = nil, nil
+        local bestDist = VD.VeilFOV or 150
+        local bestStudDist = VD.VeilMaxDist or 500
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LP and Veil_IsSurvivorVeil(p) and p.Character then
+                local pc = p.Character
+                local isDown = pc:GetAttribute("Knocked") == true or pc:GetAttribute("HookProgressDepleting") == true
+                if not isDown then
+                    local hum = pc:FindFirstChildOfClass("Humanoid")
+                    local targetPart = pc:FindFirstChild("UpperTorso") or pc:FindFirstChild("Torso") or pc:FindFirstChild("HumanoidRootPart")
+                    if hum and hum.Health > 0 and targetPart then
+                        local sp, on = cam:WorldToViewportPoint(targetPart.Position)
+                        if on and sp.Z > 0 then
+                            local sd = (Vector2.new(sp.X, sp.Y) - center).Magnitude
+                            if sd < bestDist then
+                                local studDist = (targetPart.Position - hrp.Position).Magnitude
+                                if studDist <= bestStudDist then bestDist = sd; nearest = p; nearestPart = targetPart end
+                            end
+                        end
                     end
                 end
             end
         end
-    end
-    return best
-end
+        if nearest and nearest.Character and nearestPart then
+            local tp = nearestPart.Position
+            local hand = char:FindFirstChild("Right Arm") or char:FindFirstChild("RightHand")
+            local origin = (hand and hand:IsA("BasePart")) and hand.Position or hrp.Position
+            local dir = tp - origin
+            local dist = dir.Magnitude
+            if dist > 0.1 and dist <= (VD.VeilMaxDist or 500) then
+                local isAuraActive = char:GetAttribute("special") == true
+                local prof
+                if isAuraActive then
+                    prof = { v0 = VD.VeilAuraSpearSpeed or 165, g = VD.VeilAuraSpearGravity or 96.5, windup = 0.10, latency = 0.04, maxlead = 25, scale = VD.VeilLeadMultiplier or 1.4 }
+                else
+                    prof = { v0 = VD.VeilSpearSpeed or 165, g = VD.VeilGravity or 103, windup = 0.10, latency = 0.04, maxlead = 45, scale = VD.VeilLeadMultiplier or 1.4 }
+                end
+                local aimPoint = tp
+                if VD.VeilAutoPredict then
+                    local vel = Veil_getCharacterVelocity(nearest.Character)
+                    if vel.Magnitude > 0.5 then
+                        local h0 = Vector3.new(dir.X, 0, dir.Z)
+                        local _, tFlight = Veil_solvePitch(prof, h0.Magnitude, dir.Y)
+                        local ping = 0.08
+                        pcall(function() ping = math.clamp(LP:GetNetworkPing(), 0, 0.35) end)
+                        local delay = tFlight + prof.windup + ping + prof.latency
+                        for _ = 1, 2 do
+                            local lead = vel * delay * prof.scale
+                            local maxLead = math.clamp(dist * 0.6, 3, prof.maxlead)
+                            if lead.Magnitude > maxLead then lead = lead.Unit * maxLead end
+                            aimPoint = tp + lead
+                            local ad = aimPoint - origin
+                            local ah = Vector3.new(ad.X, 0, ad.Z)
+                            local _, t2 = Veil_solvePitch(prof, math.max(ah.Magnitude, 0.1), ad.Y)
+                            delay = t2 + prof.windup + ping + prof.latency
+                        end
+                    end
+                end
+                local adir = aimPoint - origin
+                local ah = Vector3.new(adir.X, 0, adir.Z)
+                local ahDist = ah.Magnitude
+                local pitch = Veil_solvePitch(prof, ahDist, adir.Y)
+                if ahDist > 0.001 then VeilState.lookVector = ah.Unit * math.cos(pitch) + Vector3.new(0, math.sin(pitch), 0)
+                else VeilState.lookVector = adir.Unit end
+                VeilState.target = nearest
 
-local function getMuzzle()
-    local char = LP.Character
-    if not char then return Cam and Cam.CFrame.Position or Vector3.zero end
-    local tool = char:FindFirstChildOfClass("Tool")
-    if tool then
-        local h = tool:FindFirstChild("Handle") or tool:FindFirstChildWhichIsA("BasePart")
-        if h then return h.Position + h.CFrame.LookVector * 2 end
-    end
-    local r = getRoot(char)
-    return r and (r.Position + Vector3.new(0, 1.5, 0)) or (Cam and Cam.CFrame.Position or Vector3.zero)
-end
+                -- AUTO-CONNECT
+                _G.KZ_VeilState.lookVector = VeilState.lookVector
+                _G.KZ_VeilState.target = nearest
 
-RSvc.Heartbeat:Connect(function()
-    Cam = WS.CurrentCamera
-
-    -- ToF → Killer
-    if CFG.tof_on then
-        local t = getClosest(true, CFG.tof_fov)
-        if t then
-            local origin = getMuzzle()
-            local vel = t.AssemblyLinearVelocity or Vector3.zero
-            vel = Vector3.new(vel.X, 0, vel.Z)
-            local dist = (t.Position - origin).Magnitude
-            local ft = math.clamp(dist / 260, 0.04, 0.7)
-            local pred = t.Position + vel * ft * CFG.tof_predict + Vector3.new(0, 0.9, 0)
-            local dir = pred - origin
-            _G.KZ_ToFAimDir = dir.Magnitude > 0.2 and dir.Unit or nil
-            local plr = P:GetPlayerFromCharacter(t.Parent)
-            _G.KZ_ToFLockedName = plr and plr.Name or ""
+                if VD.VeilShowTracker then
+                    local sp, vis = cam:WorldToViewportPoint(tp)
+                    if vis and sp.Z > 0 then
+                        local screenDist = (Vector2.new(sp.X, sp.Y) - center).Magnitude
+                        if screenDist <= (VD.VeilFOV or 150) + 100 then
+                            Veil_UpdateTrackerVisuals(Vector2.new(sp.X, sp.Y), dist)
+                            local bottomCenter = Vector2.new(center.X, cam.ViewportSize.Y)
+                            local V = VeilVisuals
+                            if V.TrackerLine then V.TrackerLine.From = bottomCenter; V.TrackerLine.To = Vector2.new(sp.X, sp.Y); V.TrackerLine.Visible = true end
+                        else Veil_HideTracker() end
+                    end
+                else Veil_HideTracker() end
+            end
         else
-            _G.KZ_ToFAimDir = nil
-            _G.KZ_ToFLockedName = ""
-        end
-    else
-        _G.KZ_ToFAimDir = nil
-    end
-
-    -- Veil → Survivor
-    if CFG.veil_on then
-        local t = getClosest(false, CFG.veil_fov)
-        local my = getRoot(LP.Character)
-        if t and my then
-            local origin = my.Position
-            local hand = LP.Character:FindFirstChild("RightHand")
-            if hand then origin = hand.Position end
-            local vel = t.AssemblyLinearVelocity or Vector3.zero
-            vel = Vector3.new(vel.X, 0, vel.Z)
-            local dist = (t.Position - origin).Magnitude
-            local ft = math.clamp(dist / 200, 0.05, 0.6)
-            local pred = t.Position + vel * ft * CFG.veil_predict
-            pred = pred + Vector3.new(0, math.clamp(dist * 0.05, 2, 14), 0)
-            local dir = pred - origin
-            _G.KZ_VeilState.lookVector = dir.Magnitude > 0.5 and dir.Unit or nil
-            _G.KZ_VeilState.target = t
-        else
+            VeilState.target = nil; VeilState.lookVector = nil; Veil_HideTracker()
             _G.KZ_VeilState.lookVector = nil
-            _G.KZ_VeilState.target = nil
         end
-    else
-        _G.KZ_VeilState.lookVector = nil
     end
+    Scheduler:Add("VeilAim", Veil_UpdateAimbot, 0.033)
+    print("[KZ] Veil logic loaded")
 end)
 
--- ============================================
--- 1 HOOK: Kick + ToF + Veil (KALZZ ALL WORK)
--- ============================================
+-- ============================================================
+-- TOF LOGIC — SOURCE ASLI + auto-connect
+-- ============================================================
+pcall(function()
+    CFG.aim_on = CFG.aim_on ~= false or CFG.tof_on ~= false
+    CFG.aim_fov = CFG.aim_fov or CFG.tof_fov or 500
+    CFG.aim_predict = CFG.aim_predict ~= false
+    CFG.aim_zigzag = CFG.aim_zigzag == true
+    CFG.tof_predict = CFG.tof_predict or 2.8
+
+    local FR
+    pcall(function() FR = RS.Remotes.Items["Twist of Fate"].Fire end)
+
+    local AC = { dir = nil, tpart = nil, lastLock = 0 }
+    local VH = {}
+
+    local function gSV(p)
+        if not p then return Vector3.zero end
+        VH[p] = VH[p] or {}
+        table.insert(VH[p], p.AssemblyLinearVelocity or Vector3.zero)
+        if #VH[p] > 16 then table.remove(VH[p], 1) end
+        local s = Vector3.zero
+        for _, v in ipairs(VH[p]) do s = s + v end
+        local avg = s / math.max(#VH[p], 1)
+        return Vector3.new(avg.X, 0, avg.Z)
+    end
+
+    local function prP(rp, mz)
+        if not rp then return mz end
+        local b = rp.Position
+        if not CFG.aim_predict then return b end
+        local v = gSV(rp)
+        local ping = 0.05
+        pcall(function() ping = (LP:GetNetworkPing() or 0) + 0.048 end)
+        local dist = (b - mz).Magnitude
+        local t = math.clamp(dist / 260, 0.04, 0.7)
+        return b + v * (t + ping) * (CFG.tof_predict or 2.8)
+    end
+
+    local function gMZ()
+        local ch = LP.Character
+        if not ch then return Camera.CFrame.Position end
+        local tl = ch:FindFirstChildOfClass("Tool")
+        if tl then
+            local h = tl:FindFirstChild("Handle") or tl:FindFirstChildWhichIsA("BasePart")
+            if h then return h.Position + h.CFrame.LookVector * 2.4 end
+        end
+        local r = rtp(ch)
+        return r and (r.Position + Vector3.new(0, 1.5, 0)) or (Camera.CFrame.Position + Camera.CFrame.LookVector * 1.6)
+    end
+
+    local function selRP()
+        Camera = workspace.CurrentCamera
+        if not Camera then return end
+        local ctr = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        local bs, br = math.huge, nil
+        local cp = Camera.CFrame.Position
+        for _, pl in ipairs(Players:GetPlayers()) do
+            if pl ~= LP and pl.Character then
+                local ch = pl.Character
+                local hu = ch:FindFirstChildOfClass("Humanoid")
+                local hrp = rtp(ch)
+                if hrp and hu and hu.Health > 0 and isKillerChar(ch) then
+                    local wp = hrp.Position
+                    local sp, on = Camera:WorldToViewportPoint(wp)
+                    local d3 = (wp - cp).Magnitude
+                    local s = 99999
+                    if d3 <= 18 then s = d3 * 0.3
+                    elseif on and sp.Z > 0 then
+                        local d2 = (Vector2.new(sp.X, sp.Y) - ctr).Magnitude
+                        if d2 <= (CFG.aim_fov or 500) then s = d2 + d3 * 0.15 end
+                    end
+                    if s < bs then bs = s; br = hrp end
+                end
+            end
+        end
+        AC.tpart = br
+        if br then AC.lastLock = os.clock() end
+    end
+
+    local function solA()
+        AC.dir = nil
+        if not AC.tpart or not AC.tpart.Parent then return end
+        if os.clock() - AC.lastLock > 0.5 then return end
+        local mz = gMZ()
+        local pr = prP(AC.tpart, mz) + Vector3.new(0, 0.9, 0)
+        if CFG.aim_zigzag then
+            local t = tick()
+            pr = pr + Vector3.new(
+                math.sin(t * 16.8) * 0.22,
+                math.cos(t * 12.5) * 0.14,
+                math.sin(t * 10.9) * 0.19
+            )
+        end
+        local d = pr - mz
+        if d.Magnitude > 0.03 then AC.dir = d.Unit end
+    end
+
+    -- FOV circle
+    local fg = Instance.new("ScreenGui")
+    fg.Name = "KZ_FOV"; fg.ResetOnSpawn = false; fg.IgnoreGuiInset = true
+    fg.DisplayOrder = 999998; fg.Parent = PG
+    local fc = Instance.new("Frame", fg)
+    fc.AnchorPoint = Vector2.new(0.5, 0.5)
+    fc.Position = UDim2.new(0.5, 0, 0.5, 0)
+    fc.BackgroundTransparency = 1; fc.Visible = false; fc.ZIndex = 10
+    Instance.new("UICorner", fc).CornerRadius = UDim.new(1, 0)
+    local fs = Instance.new("UIStroke", fc)
+    fs.Thickness = 1.8; fs.Transparency = 0.25
+
+    RSvc.RenderStepped:Connect(function()
+        if CFG.aim_on or CFG.tof_on then
+            local r = CFG.aim_fov or 500
+            fc.Size = UDim2.fromOffset(r * 2, r * 2)
+            fc.Visible = true
+            fs.Color = AC.tpart and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(150, 150, 150)
+        else fc.Visible = false end
+    end)
+
+    RSvc.Heartbeat:Connect(function()
+        if not (CFG.aim_on or CFG.tof_on) then
+            AC.dir = nil; AC.tpart = nil
+            _G.KZ_ToFAimDir = nil
+            return
+        end
+        pcall(selRP)
+        pcall(solA)
+        _G.KZ_ToFAimDir = AC.dir
+    end)
+
+    print("[KZ] ToF logic loaded")
+end)
+
+-- ============================================================
+-- UNIFIED HOOK — 1 hook: AntiKick + ToF + Veil
+-- ============================================================
 pcall(function()
     if type(hookmetamethod) ~= "function" or type(newcclosure) ~= "function" then
         warn("[KZ] hookmetamethod tidak tersedia")
         return
     end
-    local old
-    old = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+
+    local OLD
+    OLD = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
         local m
         pcall(function() m = getnamecallmethod() end)
-        if not m then return old(self, ...) end
+        if not m then return OLD(self, ...) end
 
-        if m == "Kick" and self == LP then return nil end
-
-        if m ~= "FireServer" then
-            return old(self, ...)
+        if m == "Kick" then
+            if self == LP then return nil end
+            return OLD(self, ...)
         end
+        if m ~= "FireServer" then return OLD(self, ...) end
 
         local args = table.pack(...)
         local n = args.n
         if type(self) ~= "userdata" and type(self) ~= "table" then
-            return old(self, table.unpack(args, 1, n))
+            return OLD(self, table.unpack(args, 1, n))
+        end
+
+        -- Veil
+        if CFG.veil_on and _G.KZ_VeilState and typeof(_G.KZ_VeilState.lookVector) == "Vector3" then
+            local sn = ""
+            pcall(function() sn = tostring(self.Name or "") end)
+            if sn == "Spearthrow" and typeof(args[1]) == "Vector3" then
+                args[1] = _G.KZ_VeilState.lookVector
+            end
         end
 
         -- ToF
-        if CFG.tof_on and typeof(_G.KZ_ToFAimDir) == "Vector3" then
-            local isToF = (RC.tof and self == RC.tof)
-            if not isToF then
-                local sn, fn = "", ""
-                pcall(function() sn = tostring(self.Name or ""):lower() end)
-                pcall(function() fn = tostring(self:GetFullName() or ""):lower() end)
-                if fn:find("twist") or fn:find("fate") or fn:find("tof") then
-                    isToF = true
-                end
-                if sn == "fire" and (fn:find("tof") or fn:find("fate")) then
-                    isToF = true
-                end
-            end
+        if (CFG.aim_on or CFG.tof_on) and typeof(_G.KZ_ToFAimDir) == "Vector3" then
+            local isToF = false
+            local fn, sn = "", ""
+            pcall(function() fn = tostring(self:GetFullName() or ""):lower() end)
+            pcall(function() sn = tostring(self.Name or ""):lower() end)
+            if fn:find("twist") or fn:find("fate") or fn:find("tof") or sn == "fire" then isToF = true end
             if isToF then
                 for i = 1, n do
                     local v = args[i]
@@ -269,73 +556,14 @@ pcall(function()
             end
         end
 
-        -- Veil
-        if CFG.veil_on and _G.KZ_VeilState and typeof(_G.KZ_VeilState.lookVector) == "Vector3" then
-            local isVeil = (RC.veil and self == RC.veil)
-            if not isVeil then
-                local sn = ""
-                pcall(function() sn = tostring(self.Name or "") end)
-                if sn == "Spearthrow" then isVeil = true end
-            end
-            if isVeil and typeof(args[1]) == "Vector3" and args[1].Magnitude <= 5 then
-                args[1] = _G.KZ_VeilState.lookVector
-            end
-        end
-
-        return old(self, table.unpack(args, 1, n))
+        return OLD(self, table.unpack(args, 1, n))
     end))
-    print("[KZ] hook installed (Kick + ToF + Veil)")
+    print("[KZ] unified hook installed (1 hook)")
 end)
 
--- ============================================
--- FOV LOCK REALTIME
--- ============================================
-pcall(function()
-    local FOV_TARGET = CFG.fov_lock_value or 120
-    local ENABLED = CFG.fov_lock_on ~= false
-    local lastApply = 0
-    local changing = false
-    local function applyFOV()
-        if changing then return end
-        local c = WS.CurrentCamera
-        if not c or not ENABLED then return end
-        if math.abs(c.FieldOfView - FOV_TARGET) > 0.01 then
-            changing = true; c.FieldOfView = FOV_TARGET; changing = false
-        end
-    end
-    RSvc.Heartbeat:Connect(function()
-        if not ENABLED then return end
-        local now = os.clock()
-        if now - lastApply < 0.02 then return end
-        lastApply = now
-        FOV_TARGET = CFG.fov_lock_value or 120
-        ENABLED = CFG.fov_lock_on ~= false
-        applyFOV()
-    end)
-    applyFOV()
-end)
-
--- ============================================
--- AMBIENT + BOOST
--- ============================================
-RSvc.Heartbeat:Connect(function()
-    if CFG.ambient_on then
-        pcall(function()
-            L.Ambient = Color3.fromRGB(180,180,180)
-            L.Brightness = 3
-            L.OutdoorAmbient = Color3.fromRGB(180,180,180)
-            L.GlobalShadows = false
-            L.ClockTime = 14
-        end)
-    end
-    if CFG.boost_fps then
-        pcall(function() if setfpscap then setfpscap(240) end end)
-    end
-end)
-
--- ============================================
+-- ============================================================
 -- AUTO PARRY
--- ============================================
+-- ============================================================
 pcall(function()
     local ParryRemote = RC.parry
     if not ParryRemote then pcall(function() ParryRemote = RS.Remotes.Items["Parrying Dagger"].parry end) end
@@ -343,7 +571,7 @@ pcall(function()
     local busyAnim = false
     local Attached = {}
     local function getDist(model)
-        local my = getRoot(LP.Character); local en = getRoot(model)
+        local my = rtp(LP.Character); local en = rtp(model)
         if not my or not en then return 999 end
         return (my.Position - en.Position).Magnitude
     end
@@ -394,16 +622,16 @@ pcall(function()
         end)
     end
     local function scan()
-        for _, plr in ipairs(P:GetPlayers()) do
+        for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= LP and plr.Character then bind(plr.Character) end
         end
-        for _, obj in ipairs(WS:GetChildren()) do
+        for _, obj in ipairs(Workspace:GetChildren()) do
             if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") then bind(obj) end
         end
     end
     scan()
     task.spawn(function() while true do task.wait(0.8); scan() end end)
-    WS.DescendantAdded:Connect(function(obj)
+    Workspace.DescendantAdded:Connect(function(obj)
         if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") then
             task.wait(0.25); bind(obj)
         end
@@ -417,7 +645,7 @@ pcall(function()
     base.Name = "KZ_ParryCircle"; base.Size = Vector3.new(1, 0.05, 1); base.Anchored = true
     base.CanCollide = false; base.CanQuery = false; base.CanTouch = false
     base.CastShadow = false; base.Material = Enum.Material.SmoothPlastic
-    base.Transparency = 1; base.Parent = WS
+    base.Transparency = 1; base.Parent = Workspace
     local sg = Instance.new("SurfaceGui", base)
     sg.Face = Enum.NormalId.Top; sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
     sg.PixelsPerStud = 40; sg.LightInfluence = 0; sg.ZOffset = 1
@@ -430,7 +658,7 @@ pcall(function()
     s1.LineJoinMode = Enum.LineJoinMode.Round
     local curC, fIn = Color3.fromRGB(100,140,230), 0
     local prev = os.clock()
-    Sched:Add("Parry_Circle", function()
+    Scheduler:Add("Parry_Circle", function()
         local now = os.clock()
         local dt = now - prev; prev = now
         local hrp = LP.Character and (LP.Character:FindFirstChild("HumanoidRootPart") or LP.Character.PrimaryPart)
@@ -439,8 +667,8 @@ pcall(function()
         if fIn <= 0.001 then base.Transparency = 1 return end
         if act then
             local hasE = false
-            for _, pl in ipairs(P:GetPlayers()) do
-                if pl ~= LP and pl.Character and isKiller(pl) then
+            for _, pl in ipairs(Players:GetPlayers()) do
+                if pl ~= LP and pl.Character and isKillerChar(pl.Character) then
                     local er = pl.Character:FindFirstChild("HumanoidRootPart")
                     if er then
                         local hu = pl.Character:FindFirstChildOfClass("Humanoid")
@@ -460,9 +688,9 @@ pcall(function()
     end, 60)
 end)
 
--- ============================================
+-- ============================================================
 -- AUTO GENERATOR
--- ============================================
+-- ============================================================
 pcall(function()
     local SUCCESS_MIN, SUCCESS_MAX = 102, 116
     local NEUTRAL_MIN, NEUTRAL_MAX = 116, 159
@@ -485,10 +713,7 @@ pcall(function()
             local SG = PG:FindFirstChild("SkillCheckPromptGui")
             if SG then
                 Check = SG:FindFirstChild("Check")
-                if Check then
-                    Line = Check:FindFirstChild("Line")
-                    Goal = Check:FindFirstChild("Goal")
-                end
+                if Check then Line = Check:FindFirstChild("Line"); Goal = Check:FindFirstChild("Goal") end
             end
             local SV = PG:FindFirstChild("Survivor-mob")
             if SV then
@@ -594,9 +819,9 @@ pcall(function()
     end)
 end)
 
--- ============================================
+-- ============================================================
 -- FAST VAULT
--- ============================================
+-- ============================================================
 pcall(function()
     local lastFV = 0
     local FV_ANIM_ID = "79965656177566"
@@ -625,9 +850,9 @@ pcall(function()
     end) end
 end)
 
--- ============================================
+-- ============================================================
 -- ESP ALL
--- ============================================
+-- ============================================================
 pcall(function()
     local CK_E = Color3.fromRGB(230, 80, 80)
     local CS_E = Color3.fromRGB(80, 160, 230)
@@ -674,22 +899,20 @@ pcall(function()
         return false
     end
 
-    Sched:Add("ESP_Players", function()
-        local my = getRoot(LP.Character)
-        local myPos = my and my.Position or (Cam and Cam.CFrame.Position) or Vector3.zero
-        for _, pl in ipairs(P:GetPlayers()) do
-            if pl == LP then
-                clearHL(playerHL, pl)
+    Scheduler:Add("ESP_Players", function()
+        local my = rtp(LP.Character)
+        local myPos = my and my.Position or (Camera and Camera.CFrame.Position) or Vector3.zero
+        for _, pl in ipairs(Players:GetPlayers()) do
+            if pl == LP then clearHL(playerHL, pl)
             else
                 local ch = pl.Character
                 if not ch then clearHL(playerHL, pl)
                 else
-                    local root = getRoot(ch)
+                    local root = rtp(ch)
                     local hum = ch:FindFirstChildOfClass("Humanoid")
-                    if not root or not hum or hum.Health <= 0 then
-                        clearHL(playerHL, pl)
+                    if not root or not hum or hum.Health <= 0 then clearHL(playerHL, pl)
                     else
-                        local killer = isKiller(pl)
+                        local killer = isKillerChar(ch)
                         local enabled = (killer and CFG.esp_k) or (not killer and CFG.esp_s)
                         local dist = (root.Position - myPos).Magnitude
                         if enabled and dist <= (CFG.esp_range or 5000) then
@@ -716,7 +939,7 @@ pcall(function()
         end
     end, 5)
 
-    Sched:Add("ESP_Gen", function()
+    Scheduler:Add("ESP_Gen", function()
         if not CFG.esp_g then
             for o, hl in pairs(genHL) do pcall(function() hl:Destroy() end); genHL[o] = nil end
             return
@@ -724,7 +947,7 @@ pcall(function()
         local now = os.clock()
         if now - genCacheT > 4 then
             genCache = {}
-            for _, o in ipairs(WS:GetDescendants()) do
+            for _, o in ipairs(Workspace:GetDescendants()) do
                 if isGenerator(o) then table.insert(genCache, o) end
             end
             genCacheT = now
@@ -754,12 +977,58 @@ pcall(function()
         end
     end, 2)
 
-    P.PlayerRemoving:Connect(function(pl) clearHL(playerHL, pl) end)
+    Players.PlayerRemoving:Connect(function(pl) clearHL(playerHL, pl) end)
 end)
 
--- ============================================
--- ALERT + STUN
--- ============================================
+-- ============================================================
+-- FOV LOCK REALTIME
+-- ============================================================
+pcall(function()
+    local FOV_TARGET = CFG.fov_lock_value or 120
+    local ENABLED = CFG.fov_lock_on ~= false
+    local lastApply = 0
+    local changing = false
+    local function applyFOV()
+        if changing then return end
+        local c = Workspace.CurrentCamera
+        if not c or not ENABLED then return end
+        if math.abs(c.FieldOfView - FOV_TARGET) > 0.01 then
+            changing = true; c.FieldOfView = FOV_TARGET; changing = false
+        end
+    end
+    RSvc.Heartbeat:Connect(function()
+        if not ENABLED then return end
+        local now = os.clock()
+        if now - lastApply < 0.02 then return end
+        lastApply = now
+        FOV_TARGET = CFG.fov_lock_value or 120
+        ENABLED = CFG.fov_lock_on ~= false
+        applyFOV()
+    end)
+    applyFOV()
+end)
+
+-- ============================================================
+-- AMBIENT + BOOST FPS
+-- ============================================================
+RSvc.Heartbeat:Connect(function()
+    if CFG.ambient_on then
+        pcall(function()
+            Lighting.Ambient = Color3.fromRGB(180,180,180)
+            Lighting.Brightness = 3
+            Lighting.OutdoorAmbient = Color3.fromRGB(180,180,180)
+            Lighting.GlobalShadows = false
+            Lighting.ClockTime = 14
+        end)
+    end
+    if CFG.boost_fps then
+        pcall(function() if setfpscap then setfpscap(240) end end)
+    end
+end)
+
+-- ============================================================
+-- PROXIMITY ALERT
+-- ============================================================
 pcall(function()
     local ag = Instance.new("ScreenGui")
     ag.Name = "KZ_Alert"; ag.ResetOnSpawn = false; ag.IgnoreGuiInset = true; ag.DisplayOrder = 1000001
@@ -773,13 +1042,13 @@ pcall(function()
     as2.Size = UDim2.fromOffset(260,16); as2.Position = UDim2.new(0.5,-130,0.14,58)
     as2.BackgroundTransparency = 1; as2.TextColor3 = Color3.fromRGB(230,230,240)
     as2.Font = Enum.Font.GothamBold; as2.TextSize = 11; as2.TextStrokeTransparency = 0.3; as2.Visible = false
-    Sched:Add("Alert", function()
+    Scheduler:Add("Alert", function()
         if not CFG.alert then al.Visible=false; as2.Visible=false; return end
-        local mr = getRoot(LP.Character); if not mr then al.Visible=false; as2.Visible=false; return end
+        local mr = rtp(LP.Character); if not mr then al.Visible=false; as2.Visible=false; return end
         local cl = math.huge
-        for _, pl in ipairs(P:GetPlayers()) do
-            if pl ~= LP and pl.Character and isKiller(pl) then
-                local hrp = getRoot(pl.Character)
+        for _, pl in ipairs(Players:GetPlayers()) do
+            if pl ~= LP and pl.Character and isKillerChar(pl.Character) then
+                local hrp = rtp(pl.Character)
                 if hrp then
                     local hu = pl.Character:FindFirstChildOfClass("Humanoid")
                     if hu and hu.Health > 0 then
@@ -801,6 +1070,9 @@ pcall(function()
     end, 5)
 end)
 
+-- ============================================================
+-- STUN INDICATOR
+-- ============================================================
 pcall(function()
     local stunBB = {}
     local function isStunned(hum)
@@ -822,13 +1094,13 @@ pcall(function()
         lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 13
         return bb
     end
-    Sched:Add("Stun", function()
+    Scheduler:Add("Stun", function()
         if not CFG.stun_indicator then
             for plr, bb in pairs(stunBB) do pcall(function() bb:Destroy() end); stunBB[plr]=nil end
             return
         end
-        for _, plr in ipairs(P:GetPlayers()) do
-            if plr == LP or not plr.Character or not isKiller(plr) then
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr == LP or not plr.Character or not isKillerChar(plr.Character) then
                 if stunBB[plr] then pcall(function() stunBB[plr]:Destroy() end); stunBB[plr]=nil end
             else
                 local hum = plr.Character:FindFirstChildOfClass("Humanoid")
@@ -845,9 +1117,16 @@ pcall(function()
     end, 10)
 end)
 
--- ============================================
+-- ============================================================
 -- UI HUB
--- ============================================
+-- ============================================================
+local COL = {
+    bg=Color3.fromRGB(15,15,18), panel=Color3.fromRGB(20,20,24), side=Color3.fromRGB(17,17,21),
+    card=Color3.fromRGB(26,26,32), tabOn=Color3.fromRGB(38,38,46), brd=Color3.fromRGB(48,48,56),
+    brdS=Color3.fromRGB(38,38,46), tx=Color3.fromRGB(240,240,245), txD=Color3.fromRGB(160,160,175),
+    txF=Color3.fromRGB(110,110,125), acc=Color3.fromRGB(100,140,230), off=Color3.fromRGB(52,52,62),
+}
+local TR, TRP, TRC = 0.30, 0.30, 0.50
 local GUI, Main
 pcall(function()
     local function getParentTarget()
@@ -885,18 +1164,14 @@ pcall(function()
     Hdr.BorderSizePixel = 0; Hdr.ZIndex = 11; cR(Hdr,10)
 
     local Title = Instance.new("TextLabel", Hdr)
-    Title.Size = UDim2.new(1,-140,0,20)
-    Title.Position = UDim2.fromOffset(18,8)
-    Title.BackgroundTransparency = 1
-    Title.Text = "KALZZ HUB v12"
+    Title.Size = UDim2.new(1,-140,0,20); Title.Position = UDim2.fromOffset(18,8)
+    Title.BackgroundTransparency = 1; Title.Text = "KALZZ HUB v13"
     Title.TextColor3 = COL.tx; Title.Font = Enum.Font.GothamBold; Title.TextSize = 14
     Title.TextXAlignment = Enum.TextXAlignment.Left; Title.ZIndex = 12
 
     local Sub = Instance.new("TextLabel", Hdr)
-    Sub.Size = UDim2.new(1,-140,0,14)
-    Sub.Position = UDim2.fromOffset(18,28)
-    Sub.BackgroundTransparency = 1
-    Sub.Text = "discord.gg/"..INV.."  |  1 Hook All Work"
+    Sub.Size = UDim2.new(1,-140,0,14); Sub.Position = UDim2.fromOffset(18,28)
+    Sub.BackgroundTransparency = 1; Sub.Text = "1 Hook All Features"
     Sub.TextColor3 = COL.txF; Sub.Font = Enum.Font.Gotham; Sub.TextSize = 10
     Sub.TextXAlignment = Enum.TextXAlignment.Left; Sub.ZIndex = 12
 
@@ -904,15 +1179,13 @@ pcall(function()
     MinBtn.Size = UDim2.fromOffset(26,26); MinBtn.Position = UDim2.new(1,-68,0.5,-13)
     MinBtn.BackgroundColor3 = Color3.fromRGB(60,60,75); MinBtn.Text = "–"
     MinBtn.TextColor3 = Color3.fromRGB(240,240,240); MinBtn.Font = Enum.Font.GothamBold
-    MinBtn.TextSize = 14; MinBtn.BorderSizePixel = 0; MinBtn.AutoButtonColor = false; MinBtn.ZIndex = 12
-    cR(MinBtn,6)
+    MinBtn.TextSize = 14; MinBtn.BorderSizePixel = 0; MinBtn.AutoButtonColor = false; MinBtn.ZIndex = 12; cR(MinBtn,6)
 
     local ClsBtn = Instance.new("TextButton", Hdr)
     ClsBtn.Size = UDim2.fromOffset(26,26); ClsBtn.Position = UDim2.new(1,-36,0.5,-13)
     ClsBtn.BackgroundColor3 = Color3.fromRGB(220,80,80); ClsBtn.Text = "×"
     ClsBtn.TextColor3 = Color3.fromRGB(240,240,240); ClsBtn.Font = Enum.Font.GothamBold
-    ClsBtn.TextSize = 14; ClsBtn.BorderSizePixel = 0; ClsBtn.AutoButtonColor = false; ClsBtn.ZIndex = 12
-    cR(ClsBtn,6)
+    ClsBtn.TextSize = 14; ClsBtn.BorderSizePixel = 0; ClsBtn.AutoButtonColor = false; ClsBtn.ZIndex = 12; cR(ClsBtn,6)
 
     local drg, ds, sp
     Hdr.InputBegan:Connect(function(i)
@@ -1163,10 +1436,12 @@ pcall(function()
 
     TSurv:Sec("Silent Aim (ToF)")
     TSurv:Tog("tof_on", {Title="Enable ToF", Default=CFG.tof_on, Callback=function(v) CFG.tof_on=v end})
-    TSurv:Sl("tof_fov", {Title="FOV (1-500)", Min=1, Max=500, Default=CFG.tof_fov, Callback=function(v) CFG.tof_fov=v end})
+    TSurv:Sl("aim_fov", {Title="FOV (1-500)", Min=1, Max=500, Default=CFG.aim_fov, Callback=function(v) CFG.aim_fov=v end})
+    TSurv:Tog("aim_predict", {Title="Enable Predict", Default=CFG.aim_predict, Callback=function(v) CFG.aim_predict=v end})
+    TSurv:Tog("aim_zigzag", {Title="Zigzag", Default=CFG.aim_zigzag, Callback=function(v) CFG.aim_zigzag=v end})
     TSurv:Sl("tof_predict", {Title="Predict x10", Min=10, Max=60, Default=math.floor(CFG.tof_predict*10), Callback=function(v) CFG.tof_predict=v/10 end})
 
-    TSurv:Sec("Auto Gen")
+    TSurv:Sec("Auto Generator")
     TSurv:Tog("gene_on", {Title="Enable Auto Gen", Default=CFG.gene_on, Callback=function(v) CFG.gene_on=v end})
     TSurv:Drop("gene_method", {Title="Method", Values={"SUCCESS","NEUTRAL","INSTANT"}, Default=CFG.gene_method, Callback=function(v) CFG.gene_method=v end})
 
@@ -1176,13 +1451,19 @@ pcall(function()
     TSurv:Sl("parry_sensitive", {Title="Sensitive", Min=0, Max=500, Default=CFG.parry_sensitive, Callback=function(v) CFG.parry_sensitive=v end})
     TSurv:Tog("parry_aggro", {Title="Aggressive", Default=CFG.parry_aggro, Callback=function(v) CFG.parry_aggro=v end})
     TSurv:Tog("parry_circle", {Title="Show Circle", Default=CFG.parry_circle, Callback=function(v) CFG.parry_circle=v end})
+
     TSurv:Sec("Movement")
-    TSurv:Tog("fv", {Title="Always Fast Vault", Default=CFG.fast_vault, Callback=function(v) CFG.fast_vault=v end})
+    TSurv:Tog("fast_vault", {Title="Always Fast Vault", Default=CFG.fast_vault, Callback=function(v) CFG.fast_vault=v end})
 
     TKil:Sec("Silent Aim (Veil)")
     TKil:Tog("veil_on", {Title="Enable Veil", Default=CFG.veil_on, Callback=function(v) CFG.veil_on=v end})
     TKil:Sl("veil_fov", {Title="FOV Veil", Min=1, Max=600, Default=CFG.veil_fov, Callback=function(v) CFG.veil_fov=v end})
-    TKil:Sl("veil_predict", {Title="Predict x10", Min=10, Max=60, Default=math.floor(CFG.veil_predict*10), Callback=function(v) CFG.veil_predict=v/10 end})
+    TKil:Sl("veil_maxdist", {Title="Max Distance", Min=100, Max=3000, Default=CFG.veil_maxdist, Callback=function(v) CFG.veil_maxdist=v end})
+    TKil:Sl("veil_lead", {Title="Lead x10", Min=5, Max=30, Default=math.floor(CFG.veil_lead*10), Callback=function(v) CFG.veil_lead=v/10 end})
+    TKil:Sl("veil_speed", {Title="Spear Speed", Min=80, Max=400, Default=CFG.veil_speed, Callback=function(v) CFG.veil_speed=v end})
+    TKil:Sl("veil_grav", {Title="Spear Gravity", Min=50, Max=250, Default=CFG.veil_grav, Callback=function(v) CFG.veil_grav=v end})
+    TKil:Tog("veil_show_fov", {Title="Show FOV Ring", Default=CFG.veil_show_fov, Callback=function(v) CFG.veil_show_fov=v end})
+    TKil:Tog("veil_show_tracker", {Title="Show Tracker", Default=CFG.veil_show_tracker, Callback=function(v) CFG.veil_show_tracker=v end})
 
     TEsp:Sec("ESP Targets")
     TEsp:Tog("esp_k", {Title="Killer ESP", Default=CFG.esp_k, Callback=function(v) CFG.esp_k=v end})
@@ -1200,16 +1481,17 @@ pcall(function()
     TMisc:Tog("alert", {Title="Proximity Alert", Default=CFG.alert, Callback=function(v) CFG.alert=v end})
     TMisc:Tog("stun_indicator", {Title="Stun Indicator", Default=CFG.stun_indicator, Callback=function(v) CFG.stun_indicator=v end})
     TMisc:Sec("Debug")
-    TMisc:Btn({Title="Print RC", Callback=function()
+    TMisc:Btn({Title="Print Remote Cache", Callback=function()
         print("[KZ] ToF:", RC.tof~=nil, "Veil:", RC.veil~=nil, "Parry:", RC.parry~=nil, "FV:", RC.fastvault~=nil)
     end})
 
-    local CONFIG_FILE = "kalzz_v12.json"
+    local CONFIG_FILE = "kalzz_v13.json"
     local hasFS = (type(writefile)=="function") and (type(readfile)=="function") and (type(isfile)=="function")
     TCfg:Sec("Config File")
     TCfg:Btn({Title="Save Config", Callback=function()
         if not hasFS then return end
         pcall(function() writefile(CONFIG_FILE, game:GetService("HttpService"):JSONEncode(CFG)) end)
+        print("[KZ] Config saved")
     end})
     TCfg:Btn({Title="Load Config", Callback=function()
         if not hasFS then return end
@@ -1225,7 +1507,6 @@ pcall(function()
         pcall(function() if isfile(CONFIG_FILE) then delfile(CONFIG_FILE) end end)
     end})
     TCfg:Sec("Info")
-    TCfg:Btn({Title="Copy Discord", Callback=function() pcall(function() if setclipboard then setclipboard(URL) end end) end})
     TCfg:Btn({Title="Unload UI", Callback=function() pcall(function() GUI:Destroy() end) end})
 
     W:Show("Survi")
@@ -1233,7 +1514,7 @@ pcall(function()
     MinBtn.MouseButton1Click:Connect(function() Main.Visible=false end)
     ClsBtn.MouseButton1Click:Connect(function() Main.Visible=false end)
 
-    Sched:Add("UI_Watchdog", function()
+    Scheduler:Add("UI_Watchdog", function()
         if not GUI or not GUI.Parent then
             pcall(function() GUI.Parent = getParentTarget() end)
             if not GUI.Parent then GUI.Parent = PG end
@@ -1243,22 +1524,30 @@ pcall(function()
     end, 2)
 end)
 
--- ============================================
+-- ============================================================
 -- KEYBINDS
--- ============================================
+-- ============================================================
 UIS.InputBegan:Connect(function(i, g)
     if g then return end
     if i.KeyCode == Enum.KeyCode.V then CFG.tof_on = not CFG.tof_on end
     if i.KeyCode == Enum.KeyCode.B then CFG.veil_on = not CFG.veil_on end
+    if i.KeyCode == Enum.KeyCode.P then if _G.KZ_ManualParry then _G.KZ_ManualParry() end end
     if i.KeyCode == Enum.KeyCode.RightShift then
         if Main then Main.Visible = not Main.Visible end
     end
 end)
 
 print("==========================================")
-print("[KALZZ HUB v12] FINAL")
-print("Hook : 1 unified (Kick + ToF + Veil)")
-print("ToF  : FOV", CFG.tof_fov, "| predict", CFG.tof_predict)
-print("Veil : FOV", CFG.veil_fov, "| predict", CFG.veil_predict)
-print("Keybinds: V=ToF | B=Veil | RShift=UI | P=Parry")
+print("[KALZZ HUB v13 FINAL] ALL FEATURES")
+print("Hook        : 1 unified (AntiKick+ToF+Veil)")
+print("ToF         : source asli + auto-connect")
+print("Veil        : source asli 227 lines + auto-connect")
+print("Parry       : source asli + circle")
+print("Auto Gen    : SUCCESS/NEUTRAL/INSTANT")
+print("ESP         : Killer/Survivor/Generator")
+print("Fast Vault  : ON")
+print("FOV Lock    : Realtime")
+print("Ambient+FPS : ON")
+print("Alert+Stun  : ON")
+print("Keybinds    : V=ToF | B=Veil | P=Parry | RShift=UI")
 print("==========================================")
