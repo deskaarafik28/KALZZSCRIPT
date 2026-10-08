@@ -1,4 +1,4 @@
---[[ KALZZ HUB v13 FINAL | ALL FEATURES | 1 Unified Hook | ToF + Veil Source Asli ]]
+--[[ KALZZ HUB v14 FINAL | ALL FEATURES + Float Button | 1 Unified Hook ]]
 
 local Players    = game:GetService("Players")
 local RS         = game:GetService("ReplicatedStorage")
@@ -16,33 +16,23 @@ local Camera     = Workspace.CurrentCamera
 -- CONFIG
 -- ============================================================
 local CFG = _G.KALZZ_CFG or {
-    -- ToF
     tof_on = true, aim_on = true, aim_fov = 500,
     aim_predict = true, aim_zigzag = false, tof_predict = 2.8,
-    -- Veil
     veil_on = true, veil_fov = 320, veil_maxdist = 500,
     veil_predict = 2.8, veil_speed = 165, veil_grav = 103,
     veil_aura_speed = 165, veil_aura_grav = 96.5, veil_lead = 1.4,
     veil_show_fov = true, veil_show_tracker = true,
-    -- Parry
     parry_on = true, parry_radius = 14, parry_sensitive = 200,
     parry_aggro = true, parry_circle = true,
-    -- Auto Gen
     gene_on = false, gene_method = "SUCCESS",
-    -- Fast Vault
     fast_vault = true,
-    -- ESP
     esp_k = true, esp_s = true, esp_g = true, esp_out = false, esp_range = 5000,
-    -- Misc
     fov_lock_on = true, fov_lock_value = 120,
     ambient_on = true, boost_fps = true,
     alert = true, stun_indicator = true,
 }
 _G.KALZZ_CFG = CFG
 
--- ============================================================
--- GLOBAL STATE (auto-connect ke unified hook)
--- ============================================================
 _G.KZ_ToFAimDir  = nil
 _G.KZ_VeilState  = { lookVector = nil, target = nil }
 
@@ -148,7 +138,7 @@ task.delay(5, rescan)
 task.delay(15, rescan)
 
 -- ============================================================
--- VEIL — SOURCE ASLI (227 lines) + auto-connect
+-- VEIL — SOURCE ASLI
 -- ============================================================
 pcall(function()
     local VeilState = { target = nil, lookVector = nil, velHistory = {} }
@@ -342,11 +332,8 @@ pcall(function()
                 if ahDist > 0.001 then VeilState.lookVector = ah.Unit * math.cos(pitch) + Vector3.new(0, math.sin(pitch), 0)
                 else VeilState.lookVector = adir.Unit end
                 VeilState.target = nearest
-
-                -- AUTO-CONNECT
                 _G.KZ_VeilState.lookVector = VeilState.lookVector
                 _G.KZ_VeilState.target = nearest
-
                 if VD.VeilShowTracker then
                     local sp, vis = cam:WorldToViewportPoint(tp)
                     if vis and sp.Z > 0 then
@@ -370,7 +357,7 @@ pcall(function()
 end)
 
 -- ============================================================
--- TOF LOGIC — SOURCE ASLI + auto-connect
+-- TOF LOGIC
 -- ============================================================
 pcall(function()
     CFG.aim_on = CFG.aim_on ~= false or CFG.tof_on ~= false
@@ -467,7 +454,6 @@ pcall(function()
         if d.Magnitude > 0.03 then AC.dir = d.Unit end
     end
 
-    -- FOV circle
     local fg = Instance.new("ScreenGui")
     fg.Name = "KZ_FOV"; fg.ResetOnSpawn = false; fg.IgnoreGuiInset = true
     fg.DisplayOrder = 999998; fg.Parent = PG
@@ -503,7 +489,7 @@ pcall(function()
 end)
 
 -- ============================================================
--- UNIFIED HOOK — 1 hook: AntiKick + ToF + Veil
+-- UNIFIED HOOK — 1 hook
 -- ============================================================
 pcall(function()
     if type(hookmetamethod) ~= "function" or type(newcclosure) ~= "function" then
@@ -529,7 +515,6 @@ pcall(function()
             return OLD(self, table.unpack(args, 1, n))
         end
 
-        -- Veil
         if CFG.veil_on and _G.KZ_VeilState and typeof(_G.KZ_VeilState.lookVector) == "Vector3" then
             local sn = ""
             pcall(function() sn = tostring(self.Name or "") end)
@@ -538,7 +523,6 @@ pcall(function()
             end
         end
 
-        -- ToF
         if (CFG.aim_on or CFG.tof_on) and typeof(_G.KZ_ToFAimDir) == "Vector3" then
             local isToF = false
             local fn, sn = "", ""
@@ -558,7 +542,7 @@ pcall(function()
 
         return OLD(self, table.unpack(args, 1, n))
     end))
-    print("[KZ] unified hook installed (1 hook)")
+    print("[KZ] unified hook installed")
 end)
 
 -- ============================================================
@@ -640,7 +624,6 @@ pcall(function()
     if LP.Character then task.spawn(function() setupBusy(LP.Character) end) end
     UIS.InputBegan:Connect(function(i,g) if g then return end if i.KeyCode==Enum.KeyCode.P then doParry() end end)
 
-    -- Parry Circle
     local base = Instance.new("Part")
     base.Name = "KZ_ParryCircle"; base.Size = Vector3.new(1, 0.05, 1); base.Anchored = true
     base.CanCollide = false; base.CanQuery = false; base.CanTouch = false
@@ -1127,7 +1110,7 @@ local COL = {
     txF=Color3.fromRGB(110,110,125), acc=Color3.fromRGB(100,140,230), off=Color3.fromRGB(52,52,62),
 }
 local TR, TRP, TRC = 0.30, 0.30, 0.50
-local GUI, Main
+local GUI, Main, FB
 pcall(function()
     local function getParentTarget()
         if gethui then local ok, h = pcall(gethui); if ok and h then return h end end
@@ -1165,13 +1148,13 @@ pcall(function()
 
     local Title = Instance.new("TextLabel", Hdr)
     Title.Size = UDim2.new(1,-140,0,20); Title.Position = UDim2.fromOffset(18,8)
-    Title.BackgroundTransparency = 1; Title.Text = "KALZZ HUB v13"
+    Title.BackgroundTransparency = 1; Title.Text = "KALZZ HUB v14"
     Title.TextColor3 = COL.tx; Title.Font = Enum.Font.GothamBold; Title.TextSize = 14
     Title.TextXAlignment = Enum.TextXAlignment.Left; Title.ZIndex = 12
 
     local Sub = Instance.new("TextLabel", Hdr)
     Sub.Size = UDim2.new(1,-140,0,14); Sub.Position = UDim2.fromOffset(18,28)
-    Sub.BackgroundTransparency = 1; Sub.Text = "1 Hook All Features"
+    Sub.BackgroundTransparency = 1; Sub.Text = "1 Hook All Features + Float"
     Sub.TextColor3 = COL.txF; Sub.Font = Enum.Font.Gotham; Sub.TextSize = 10
     Sub.TextXAlignment = Enum.TextXAlignment.Left; Sub.ZIndex = 12
 
@@ -1485,7 +1468,7 @@ pcall(function()
         print("[KZ] ToF:", RC.tof~=nil, "Veil:", RC.veil~=nil, "Parry:", RC.parry~=nil, "FV:", RC.fastvault~=nil)
     end})
 
-    local CONFIG_FILE = "kalzz_v13.json"
+    local CONFIG_FILE = "kalzz_v14.json"
     local hasFS = (type(writefile)=="function") and (type(readfile)=="function") and (type(isfile)=="function")
     TCfg:Sec("Config File")
     TCfg:Btn({Title="Save Config", Callback=function()
@@ -1511,8 +1494,85 @@ pcall(function()
 
     W:Show("Survi")
 
-    MinBtn.MouseButton1Click:Connect(function() Main.Visible=false end)
-    ClsBtn.MouseButton1Click:Connect(function() Main.Visible=false end)
+    -- ==========================================
+    -- FLOAT BUTTON (KZ)
+    -- ==========================================
+    local FG = Instance.new("ScreenGui")
+    FG.Name = "KZ_Float_"..tostring(os.time())
+    FG.ResetOnSpawn = false
+    FG.IgnoreGuiInset = true
+    FG.DisplayOrder = 2147483647
+    pcall(function() FG.Parent = getParentTarget() end)
+    if not FG.Parent then FG.Parent = PG end
+
+    FB = Instance.new("TextButton", FG)
+    FB.Size = UDim2.fromOffset(70, 70)
+    FB.Position = UDim2.new(0, 20, 0.5, -35)
+    FB.BackgroundTransparency = 1
+    FB.Text = "KZ"
+    FB.TextColor3 = Color3.fromRGB(240, 240, 250)
+    FB.TextStrokeTransparency = 0.15
+    FB.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    FB.Font = Enum.Font.GothamBlack
+    FB.TextSize = 32
+    FB.AutoButtonColor = false
+    FB.Active = true
+    FB.Visible = false
+    FB.ZIndex = 2147483647
+
+    local bgCircle = Instance.new("Frame", FB)
+    bgCircle.Size = UDim2.fromOffset(54, 54)
+    bgCircle.Position = UDim2.new(0.5, -27, 0.5, -27)
+    bgCircle.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
+    bgCircle.BackgroundTransparency = 0.25
+    bgCircle.BorderSizePixel = 0
+    bgCircle.ZIndex = -1
+    Instance.new("UICorner", bgCircle).CornerRadius = UDim.new(1, 0)
+    local bgStroke = Instance.new("UIStroke", bgCircle)
+    bgStroke.Color = Color3.fromRGB(100, 140, 230)
+    bgStroke.Thickness = 2
+    bgStroke.Transparency = 0.35
+
+    local function toggleUI()
+        if Main.Visible then
+            Main.Visible = false
+            FB.Visible = true
+        else
+            Main.Visible = true
+            FB.Visible = false
+        end
+    end
+    _G.KZ_ToggleUI = toggleUI
+
+    local fbDrag, fbStart, fbPos, fbMoved = false, nil, nil, false
+    FB.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            fbDrag = true
+            fbMoved = false
+            fbStart = i.Position
+            fbPos = FB.Position
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if fbDrag and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            local d = i.Position - fbStart
+            if d.Magnitude > 8 then
+                fbMoved = true
+                FB.Position = UDim2.new(fbPos.X.Scale, fbPos.X.Offset + d.X, fbPos.Y.Scale, fbPos.Y.Offset + d.Y)
+            end
+        end
+    end)
+    UIS.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            if fbDrag and not fbMoved then toggleUI() end
+            fbDrag = false
+            task.delay(0.1, function() fbMoved = false end)
+        end
+    end)
+
+    -- MINIMIZE + CLOSE -> show float
+    MinBtn.MouseButton1Click:Connect(function() Main.Visible=false; FB.Visible=true end)
+    ClsBtn.MouseButton1Click:Connect(function() Main.Visible=false; FB.Visible=true end)
 
     Scheduler:Add("UI_Watchdog", function()
         if not GUI or not GUI.Parent then
@@ -1533,21 +1593,14 @@ UIS.InputBegan:Connect(function(i, g)
     if i.KeyCode == Enum.KeyCode.B then CFG.veil_on = not CFG.veil_on end
     if i.KeyCode == Enum.KeyCode.P then if _G.KZ_ManualParry then _G.KZ_ManualParry() end end
     if i.KeyCode == Enum.KeyCode.RightShift then
-        if Main then Main.Visible = not Main.Visible end
+        if _G.KZ_ToggleUI then _G.KZ_ToggleUI() end
     end
 end)
 
 print("==========================================")
-print("[KALZZ HUB v13 FINAL] ALL FEATURES")
-print("Hook        : 1 unified (AntiKick+ToF+Veil)")
-print("ToF         : source asli + auto-connect")
-print("Veil        : source asli 227 lines + auto-connect")
-print("Parry       : source asli + circle")
-print("Auto Gen    : SUCCESS/NEUTRAL/INSTANT")
-print("ESP         : Killer/Survivor/Generator")
-print("Fast Vault  : ON")
-print("FOV Lock    : Realtime")
-print("Ambient+FPS : ON")
-print("Alert+Stun  : ON")
-print("Keybinds    : V=ToF | B=Veil | P=Parry | RShift=UI")
+print("[KALZZ HUB v14 FINAL]")
+print("Float button: KZ (drag + click toggle)")
+print("Keybinds: V=ToF | B=Veil | P=Parry | RShift=UI")
+print("All features: ToF, Veil, Parry, Gen, Vault, ESP, Alert, Stun")
+print("Hook: 1 unified (AntiKick + ToF + Veil)")
 print("==========================================")
