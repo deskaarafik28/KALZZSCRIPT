@@ -1,4 +1,4 @@
---[[ KALZZ HUB V4 FINAL | All Features | ESP NEW | FOV+Parry Circle | No Blue ]]
+--[[ KALZZ HUB V5 FINAL | ESP Split Toggles | All Features ]]
 
 pcall(function()
     local o
@@ -29,7 +29,9 @@ local CFG = _G.KALZZ_CFG or {
     veil_on = true, veil_fov = 320, veil_predict = 2.8, veil_maxdist = 2000, veil_show_fov = true,
     parry_on = true, parry_radius = 14, parry_sensitive = 200, parry_aggro = true, parry_show_circle = true,
     fast_vault = true,
-    esp_k = true, esp_s = true, esp_g = true, esp_out = false, esp_range = 5000,
+    esp_k = true, esp_s = true, esp_g = true,
+    esp_gen_txt = true, esp_item = true,
+    esp_out = false, esp_range = 5000,
     fov_lock = false, fov_value = 120,
     ambient = true, boost_fps = true,
     alert = true,
@@ -654,13 +656,12 @@ pcall(function()
 end)
 
 -- ============================================================
--- ESP NEW (Notties style)
+-- ESP NEW (Notties) — with split toggles
 -- ============================================================
 pcall(function()
     local PlayersESP = Players
     local RunServiceESP = RSvc
     local LP_ESP = LP
-    local CFG_ESP = CFG
 
     local highlights = {}
     local labels = {}
@@ -702,12 +703,12 @@ pcall(function()
             end
         end
 
-        if isK and not CFG_ESP.esp_k then
+        if isK and not CFG.esp_k then
             if highlights[plr] then highlights[plr].Enabled = false end
             if labels[plr] and labels[plr].Parent then labels[plr].Parent.Adornee = nil end
             return
         end
-        if isS and not CFG_ESP.esp_s then
+        if isS and not CFG.esp_s then
             if highlights[plr] then highlights[plr].Enabled = false end
             if labels[plr] and labels[plr].Parent then labels[plr].Parent.Adornee = nil end
             return
@@ -725,9 +726,12 @@ pcall(function()
             color = Color3.fromRGB(255, 80, 80)
         else
             local hum = char:FindFirstChildOfClass("Humanoid")
-            local item = plr:GetAttribute("EquippedItem")
-            if item and item ~= "" and item ~= "None" then
-                line2 = "[" .. tostring(item) .. "]"
+            -- ⭐ ITEM cuma kalau esp_item ON
+            if CFG.esp_item then
+                local item = plr:GetAttribute("EquippedItem")
+                if item and item ~= "" and item ~= "None" then
+                    line2 = "[" .. tostring(item) .. "]"
+                end
             end
             if char:GetAttribute("IsHooked") then
                 color = Color3.fromRGB(255, 110, 80)
@@ -757,7 +761,7 @@ pcall(function()
         hl.Adornee = char
         hl.FillColor = color
         hl.OutlineColor = color
-        hl.FillTransparency = CFG_ESP.esp_out and 1 or 0.35
+        hl.FillTransparency = CFG.esp_out and 1 or 0.35
         hl.OutlineTransparency = 0
         hl.Enabled = true
 
@@ -792,9 +796,12 @@ pcall(function()
     -- ========== GENERATOR ESP ==========
     local function updateGen(obj)
         if not obj or not obj.Parent then return end
-        if not CFG_ESP.esp_g then
+        if not CFG.esp_g then
             if genHL[obj] then genHL[obj].Enabled = false end
-            if genLbl[obj] and genLbl[obj].Parent then genLbl[obj].Parent.Adornee = nil end
+            if genLbl[obj] then
+                if genLbl[obj].Parent then genLbl[obj].Parent:Destroy() end
+                genLbl[obj] = nil
+            end
             return
         end
 
@@ -820,11 +827,11 @@ pcall(function()
         if isFull then
             hl.FillColor = Color3.fromRGB(0, 255, 0)
             hl.OutlineColor = Color3.fromRGB(0, 255, 0)
-            hl.FillTransparency = CFG_ESP.esp_out and 1 or 0.5
+            hl.FillTransparency = CFG.esp_out and 1 or 0.5
         else
             hl.FillColor = Color3.fromRGB(80, 220, 120)
             hl.OutlineColor = Color3.fromRGB(80, 220, 120)
-            hl.FillTransparency = CFG_ESP.esp_out and 1 or 0.55
+            hl.FillTransparency = CFG.esp_out and 1 or 0.55
         end
         hl.OutlineTransparency = 0
 
@@ -833,39 +840,47 @@ pcall(function()
             or obj:FindFirstChildWhichIsA("BasePart")
         if not attach then return end
 
-        if not genLbl[obj] or not genLbl[obj].Parent then
-            local bill = Instance.new("BillboardGui")
-            bill.Size = UDim2.new(0, 170, 0, 38)
-            bill.StudsOffset = Vector3.new(0, 4, 0)
-            bill.AlwaysOnTop = true
-            bill.Parent = cam
-            local txt = Instance.new("TextLabel")
-            txt.Size = UDim2.new(1, 0, 1, 0)
-            txt.BackgroundTransparency = 1
-            txt.TextSize = 14
-            txt.Font = Enum.Font.SourceSansSemibold
-            txt.TextStrokeTransparency = 0.4
-            txt.Parent = bill
-            genLbl[obj] = txt
-        end
-        local txt = genLbl[obj]
-        local bill = txt.Parent
-        if bill then
-            if bill.Parent ~= cam then bill.Parent = cam end
-            bill.Adornee = attach
-        end
-
-        if isFull then
-            txt.Text = "Generator\n100%"
-            txt.TextColor3 = Color3.fromRGB(0, 255, 0)
-        else
-            if repairing > 0 then
-                txt.Text = string.format("Generator\n%.1f%% [%d]", progress, repairing)
-            else
-                txt.Text = string.format("Generator\n%.1f%%", progress)
+        -- ⭐ TEXT GENERATOR cuma kalau esp_gen_txt ON
+        if CFG.esp_gen_txt then
+            if not genLbl[obj] or not genLbl[obj].Parent then
+                local bill = Instance.new("BillboardGui")
+                bill.Size = UDim2.new(0, 170, 0, 38)
+                bill.StudsOffset = Vector3.new(0, 4, 0)
+                bill.AlwaysOnTop = true
+                bill.Parent = cam
+                local txt = Instance.new("TextLabel")
+                txt.Size = UDim2.new(1, 0, 1, 0)
+                txt.BackgroundTransparency = 1
+                txt.TextSize = 14
+                txt.Font = Enum.Font.SourceSansSemibold
+                txt.TextStrokeTransparency = 0.4
+                txt.Parent = bill
+                genLbl[obj] = txt
             end
-            local g = math.clamp(progress / 100, 0, 1)
-            txt.TextColor3 = Color3.new(1 - g * 0.7, 1, 1 - g * 0.7)
+            local txt = genLbl[obj]
+            local bill = txt.Parent
+            if bill then
+                if bill.Parent ~= cam then bill.Parent = cam end
+                bill.Adornee = attach
+            end
+
+            if isFull then
+                txt.Text = "Generator\n100%"
+                txt.TextColor3 = Color3.fromRGB(0, 255, 0)
+            else
+                if repairing > 0 then
+                    txt.Text = string.format("Generator\n%.1f%% [%d]", progress, repairing)
+                else
+                    txt.Text = string.format("Generator\n%.1f%%", progress)
+                end
+                local g = math.clamp(progress / 100, 0, 1)
+                txt.TextColor3 = Color3.new(1 - g * 0.7, 1, 1 - g * 0.7)
+            end
+        else
+            if genLbl[obj] then
+                if genLbl[obj].Parent then genLbl[obj].Parent:Destroy() end
+                genLbl[obj] = nil
+            end
         end
     end
 
@@ -1438,10 +1453,16 @@ TKil:Sl("veil_fov", {Title = "FOV", Min = 1, Max = 600, Default = CFG.veil_fov, 
 TKil:Sl("veil_predict", {Title = "Predict x10", Min = 10, Max = 50, Default = math.floor(CFG.veil_predict * 10), Callback = function(v) CFG.veil_predict = v / 10 end})
 TKil:Sl("veil_maxdist", {Title = "Max Distance", Min = 100, Max = 3000, Default = CFG.veil_maxdist, Callback = function(v) CFG.veil_maxdist = v end})
 
-TEsp:Sec("ESP Targets")
+TEsp:Sec("Player ESP")
 TEsp:Tog("esp_k", {Title = "Killer ESP", Default = CFG.esp_k, Callback = function(v) CFG.esp_k = v end})
 TEsp:Tog("esp_s", {Title = "Survivor ESP", Default = CFG.esp_s, Callback = function(v) CFG.esp_s = v end})
+TEsp:Tog("esp_item", {Title = "Show Item Name", Default = CFG.esp_item, Callback = function(v) CFG.esp_item = v end})
+
+TEsp:Sec("Generator ESP")
 TEsp:Tog("esp_g", {Title = "Generator ESP", Default = CFG.esp_g, Callback = function(v) CFG.esp_g = v end})
+TEsp:Tog("esp_gen_txt", {Title = "Show Progress Text", Default = CFG.esp_gen_txt, Callback = function(v) CFG.esp_gen_txt = v end})
+
+TEsp:Sec("Style")
 TEsp:Tog("esp_out", {Title = "Outline Only", Default = CFG.esp_out, Callback = function(v) CFG.esp_out = v end})
 
 TMisc:Sec("Vision")
@@ -1572,9 +1593,9 @@ UIS.InputBegan:Connect(function(i, g)
 end)
 
 print("==========================================")
-print("[KALZZ HUB V4 FINAL]")
-print("ESP         : NEW (Notties) - K/S/G + Outline + Progress")
-print("FOV Circle  : ToF + Veil (putih)")
+print("[KALZZ HUB V5 FINAL]")
+print("ESP tabs   : Killer/Survivor/Gen/Item/Text separate")
+print("FOV Circle : ToF + Veil (putih)")
 print("Parry Circle: putih")
 print("Toggle      : kotak putih")
 print("No blue     : netral semua")
