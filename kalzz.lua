@@ -1,4 +1,4 @@
---[[ KALZZ HUB V3 CLEAN | FOV + Parry Circle White | ESP | No Blue ]]
+--[[ KALZZ HUB V4 FINAL | All Features | ESP NEW | FOV+Parry Circle | No Blue ]]
 
 pcall(function()
     local o
@@ -261,7 +261,6 @@ do
         local center = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2)
         local localK = isLocalKiller()
 
-        -- ToF Circle (survivor only) — PUTIH
         if CFG.tof_show_fov and CFG.tof_on and not localK then
             local r = CFG.tof_fov or 500
             local col = _G.KZ_ToFTarget and Color3.fromRGB(255,255,255) or Color3.fromRGB(200,200,210)
@@ -269,7 +268,6 @@ do
             V.tof.Position=center; V.tof.Radius=r; V.tof.Color=col; V.tof.Visible=true
         else V.tof.Visible=false; V.tofO.Visible=false end
 
-        -- Veil Circle (killer only) — PUTIH
         if CFG.veil_show_fov and CFG.veil_on and localK then
             local r = CFG.veil_fov or 320
             local col = _G.KZ_VeilState.target and Color3.fromRGB(255,255,255) or Color3.fromRGB(200,200,210)
@@ -277,7 +275,6 @@ do
             V.veil.Position=center; V.veil.Radius=r; V.veil.Color=col; V.veil.Visible=true
         else V.veil.Visible=false; V.veilO.Visible=false end
 
-        -- Tracker dot
         local tgt = _G.KZ_ToFTarget or _G.KZ_VeilState.target
         if tgt and tgt.Parent then
             local sp, on = cam:WorldToViewportPoint(tgt.Position)
@@ -290,7 +287,7 @@ do
 end
 
 -- ============================================================
--- PARRY CIRCLE — PUTIH (bukan kuning)
+-- PARRY CIRCLE — PUTIH
 -- ============================================================
 do
     local base = Instance.new("Part")
@@ -657,79 +654,269 @@ pcall(function()
 end)
 
 -- ============================================================
--- ESP — all features
+-- ESP NEW (Notties style)
 -- ============================================================
 pcall(function()
-    local cache = {}
-    local genCache, genT = {}, 0
-    task.spawn(function()
-        while true do
-            task.wait(0.2)
-            for _, pl in ipairs(Players:GetPlayers()) do
-                if pl ~= LP and pl.Character then
-                    local hum = pl.Character:FindFirstChildOfClass("Humanoid")
-                    if hum and hum.Health > 0 then
-                        local k = isKiller(pl)
-                        local en = (k and CFG.esp_k) or (not k and CFG.esp_s)
-                        if en then
-                            if not cache[pl] then
-                                local hl = Instance.new("Highlight")
-                                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                                hl.Parent = PG
-                                cache[pl] = hl
-                            end
-                            local hl = cache[pl]
-                            hl.Adornee = pl.Character
-                            hl.FillColor = k and Color3.fromRGB(220,80,80) or Color3.fromRGB(200,200,210)
-                            hl.OutlineColor = hl.FillColor
-                            hl.FillTransparency = CFG.esp_out and 1 or 0.55
-                            hl.Enabled = true
-                        elseif cache[pl] then cache[pl].Enabled = false end
-                    elseif cache[pl] then cache[pl].Enabled = false end
-                elseif cache[pl] then cache[pl]:Destroy(); cache[pl] = nil end
+    local PlayersESP = Players
+    local RunServiceESP = RSvc
+    local LP_ESP = LP
+    local CFG_ESP = CFG
+
+    local highlights = {}
+    local labels = {}
+    local genHL, genLbl, trackedGens = {}, {}, {}
+
+    local function getCam()
+        return workspace.CurrentCamera
+    end
+
+    -- ========== PLAYER ESP ==========
+    local function updatePlayer(plr, cam)
+        if plr == LP_ESP then return end
+        local char = plr.Character
+        local head = char and char:FindFirstChild("Head")
+
+        if not char or not head then
+            if highlights[plr] then
+                highlights[plr].FillTransparency = 1
+                highlights[plr].OutlineTransparency = 1
+                highlights[plr].Adornee = nil
             end
-            if CFG.esp_g then
-                local now = os.clock()
-                if now - genT > 4 then
-                    genCache = {}
-                    for _, o in ipairs(Workspace:GetDescendants()) do
-                        if (o:IsA("Model") or o:IsA("BasePart")) and o.Parent then
-                            local n = o.Name:lower()
-                            if (n:find("generator") or n:find("fuse")) and n ~= "gen" then table.insert(genCache, o) end
-                        end
-                    end
-                    genT = now
-                end
-                for _, o in ipairs(genCache) do
-                    if not o.Parent then
-                        if cache[o] then cache[o]:Destroy(); cache[o]=nil end
-                    else
-                        local done = false
-                        local prog = o:GetAttribute("Progress") or o:GetAttribute("progress")
-                        if typeof(prog)=="number" and prog >= 99.5 then done = true end
-                        if o:GetAttribute("Completed") or o:GetAttribute("Finished") then done = true end
-                        if not done then
-                            if not cache[o] then
-                                local hl = Instance.new("Highlight")
-                                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                                hl.Parent = PG
-                                cache[o] = hl
-                            end
-                            local hl = cache[o]
-                            hl.Adornee = o
-                            hl.FillColor = Color3.fromRGB(255,255,255)
-                            hl.OutlineColor = Color3.fromRGB(255,255,255)
-                            hl.FillTransparency = CFG.esp_out and 1 or 0.6
-                            hl.Enabled = true
-                        elseif cache[o] then cache[o]:Destroy(); cache[o] = nil end
-                    end
-                end
+            if labels[plr] then
+                labels[plr].Text = ""
+                if labels[plr].Parent then labels[plr].Parent.Adornee = nil end
+            end
+            return
+        end
+
+        local team = plr.Team
+        local isK = team and team.Name == "Killer"
+        local isS = team and (team.Name == "Survivors" or team.Name == "Survivor")
+
+        if not isK and not isS then
+            local role = char:GetAttribute("Role") or plr:GetAttribute("Role")
+            if type(role) == "string" then
+                local r = role:lower()
+                isK = r:find("killer") ~= nil
+                isS = r:find("survivor") ~= nil
+            end
+        end
+
+        if isK and not CFG_ESP.esp_k then
+            if highlights[plr] then highlights[plr].Enabled = false end
+            if labels[plr] and labels[plr].Parent then labels[plr].Parent.Adornee = nil end
+            return
+        end
+        if isS and not CFG_ESP.esp_s then
+            if highlights[plr] then highlights[plr].Enabled = false end
+            if labels[plr] and labels[plr].Parent then labels[plr].Parent.Adornee = nil end
+            return
+        end
+        if not isK and not isS then
+            if highlights[plr] then highlights[plr].Enabled = false end
+            return
+        end
+
+        local line1, line2, color = plr.Name, "", Color3.fromRGB(255, 255, 255)
+
+        if isK then
+            local kn = plr:GetAttribute("SelectedKiller") or "Killer"
+            line2 = "[" .. tostring(kn) .. "]"
+            color = Color3.fromRGB(255, 80, 80)
+        else
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            local item = plr:GetAttribute("EquippedItem")
+            if item and item ~= "" and item ~= "None" then
+                line2 = "[" .. tostring(item) .. "]"
+            end
+            if char:GetAttribute("IsHooked") then
+                color = Color3.fromRGB(255, 110, 80)
+            elseif char:GetAttribute("Knocked") then
+                color = Color3.fromRGB(255, 170, 80)
+            elseif hum and hum.Health < hum.MaxHealth then
+                color = Color3.fromRGB(255, 255, 120)
+            else
+                color = Color3.fromRGB(100, 255, 100)
+            end
+        end
+
+        local myRoot = LP_ESP.Character and LP_ESP.Character:FindFirstChild("HumanoidRootPart")
+        local dist = ""
+        if myRoot then
+            dist = "[" .. math.floor((head.Position - myRoot.Position).Magnitude) .. "m]"
+        end
+
+        if not highlights[plr] or not highlights[plr].Parent then
+            local hl = Instance.new("Highlight")
+            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            hl.Parent = cam
+            highlights[plr] = hl
+        end
+        local hl = highlights[plr]
+        if hl.Parent ~= cam then hl.Parent = cam end
+        hl.Adornee = char
+        hl.FillColor = color
+        hl.OutlineColor = color
+        hl.FillTransparency = CFG_ESP.esp_out and 1 or 0.35
+        hl.OutlineTransparency = 0
+        hl.Enabled = true
+
+        if not labels[plr] or not labels[plr].Parent then
+            local bill = Instance.new("BillboardGui")
+            bill.Size = UDim2.new(0, 220, 0, 60)
+            bill.StudsOffset = Vector3.new(0, 3.2, 0)
+            bill.AlwaysOnTop = true
+            bill.Parent = cam
+            local txt = Instance.new("TextLabel")
+            txt.Size = UDim2.new(1, 0, 1, 0)
+            txt.BackgroundTransparency = 1
+            txt.Font = Enum.Font.SourceSansSemibold
+            txt.TextSize = 14
+            txt.TextStrokeTransparency = 0.3
+            txt.TextStrokeColor3 = Color3.new(0, 0, 0)
+            txt.Parent = bill
+            labels[plr] = txt
+        end
+        local txt = labels[plr]
+        local bill = txt.Parent
+        if bill and bill.Parent ~= cam then bill.Parent = cam end
+        if bill then bill.Adornee = head end
+        if line2 ~= "" then
+            txt.Text = string.format("%s %s\n%s", line1, dist, line2)
+        else
+            txt.Text = string.format("%s %s", line1, dist)
+        end
+        txt.TextColor3 = color
+    end
+
+    -- ========== GENERATOR ESP ==========
+    local function updateGen(obj)
+        if not obj or not obj.Parent then return end
+        if not CFG_ESP.esp_g then
+            if genHL[obj] then genHL[obj].Enabled = false end
+            if genLbl[obj] and genLbl[obj].Parent then genLbl[obj].Parent.Adornee = nil end
+            return
+        end
+
+        local progress = obj:GetAttribute("RepairProgress")
+        if progress == nil then return end
+        local repairing = obj:GetAttribute("PlayersRepairingCount") or 0
+        local isFull = progress >= 100
+
+        local cam = getCam()
+        if not cam then return end
+
+        if not genHL[obj] or not genHL[obj].Parent then
+            local hl = Instance.new("Highlight")
+            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            hl.Parent = cam
+            genHL[obj] = hl
+        end
+        local hl = genHL[obj]
+        if hl.Parent ~= cam then hl.Parent = cam end
+        hl.Adornee = obj
+        hl.Enabled = true
+
+        if isFull then
+            hl.FillColor = Color3.fromRGB(0, 255, 0)
+            hl.OutlineColor = Color3.fromRGB(0, 255, 0)
+            hl.FillTransparency = CFG_ESP.esp_out and 1 or 0.5
+        else
+            hl.FillColor = Color3.fromRGB(80, 220, 120)
+            hl.OutlineColor = Color3.fromRGB(80, 220, 120)
+            hl.FillTransparency = CFG_ESP.esp_out and 1 or 0.55
+        end
+        hl.OutlineTransparency = 0
+
+        local attach = obj:FindFirstChild("defaultMaterial")
+            or obj.PrimaryPart
+            or obj:FindFirstChildWhichIsA("BasePart")
+        if not attach then return end
+
+        if not genLbl[obj] or not genLbl[obj].Parent then
+            local bill = Instance.new("BillboardGui")
+            bill.Size = UDim2.new(0, 170, 0, 38)
+            bill.StudsOffset = Vector3.new(0, 4, 0)
+            bill.AlwaysOnTop = true
+            bill.Parent = cam
+            local txt = Instance.new("TextLabel")
+            txt.Size = UDim2.new(1, 0, 1, 0)
+            txt.BackgroundTransparency = 1
+            txt.TextSize = 14
+            txt.Font = Enum.Font.SourceSansSemibold
+            txt.TextStrokeTransparency = 0.4
+            txt.Parent = bill
+            genLbl[obj] = txt
+        end
+        local txt = genLbl[obj]
+        local bill = txt.Parent
+        if bill then
+            if bill.Parent ~= cam then bill.Parent = cam end
+            bill.Adornee = attach
+        end
+
+        if isFull then
+            txt.Text = "Generator\n100%"
+            txt.TextColor3 = Color3.fromRGB(0, 255, 0)
+        else
+            if repairing > 0 then
+                txt.Text = string.format("Generator\n%.1f%% [%d]", progress, repairing)
+            else
+                txt.Text = string.format("Generator\n%.1f%%", progress)
+            end
+            local g = math.clamp(progress / 100, 0, 1)
+            txt.TextColor3 = Color3.new(1 - g * 0.7, 1, 1 - g * 0.7)
+        end
+    end
+
+    local function scanGens()
+        local map = workspace:FindFirstChild("Map") or workspace
+        for _, obj in ipairs(map:GetDescendants()) do
+            if obj:IsA("Model") and obj:GetAttribute("RepairProgress") ~= nil then
+                trackedGens[obj] = true
+                updateGen(obj)
+            end
+        end
+    end
+
+    RunServiceESP.Heartbeat:Connect(function()
+        local cam = getCam()
+        if not cam then return end
+        for _, plr in ipairs(PlayersESP:GetPlayers()) do
+            pcall(updatePlayer, plr, cam)
+        end
+        for gen in pairs(trackedGens) do
+            if gen and gen.Parent then
+                pcall(updateGen, gen)
+            else
+                if genHL[gen] then genHL[gen]:Destroy() end
+                if genLbl[gen] and genLbl[gen].Parent then genLbl[gen].Parent:Destroy() end
+                genHL[gen], genLbl[gen], trackedGens[gen] = nil, nil, nil
             end
         end
     end)
-    Players.PlayerRemoving:Connect(function(pl)
-        if cache[pl] then cache[pl]:Destroy(); cache[pl] = nil end
+
+    task.spawn(function()
+        task.wait(1)
+        scanGens()
     end)
+
+    local map = workspace:FindFirstChild("Map") or workspace
+    map.DescendantAdded:Connect(function(child)
+        task.defer(function()
+            if child:IsA("Model") and child:GetAttribute("RepairProgress") ~= nil then
+                trackedGens[child] = true
+                updateGen(child)
+            end
+        end)
+    end)
+
+    PlayersESP.PlayerRemoving:Connect(function(plr)
+        if highlights[plr] then highlights[plr]:Destroy() highlights[plr] = nil end
+        if labels[plr] and labels[plr].Parent then labels[plr].Parent:Destroy() labels[plr] = nil end
+    end)
+
+    print("[KZ] ESP NEW loaded")
 end)
 
 -- ============================================================
@@ -1385,10 +1572,10 @@ UIS.InputBegan:Connect(function(i, g)
 end)
 
 print("==========================================")
-print("[KALZZ HUB V3 CLEAN]")
+print("[KALZZ HUB V4 FINAL]")
+print("ESP         : NEW (Notties) - K/S/G + Outline + Progress")
 print("FOV Circle  : ToF + Veil (putih)")
-print("Parry Circle: putih (bukan kuning)")
-print("ESP         : K/S/G + Outline")
+print("Parry Circle: putih")
 print("Toggle      : kotak putih")
-print("No blue     : semua netral")
+print("No blue     : netral semua")
 print("==========================================")
