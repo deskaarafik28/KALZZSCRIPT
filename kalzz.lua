@@ -1,6 +1,5 @@
---[[ KALZZ HUB v22 FINAL | Auto Gen Function-Only | No VD_AutoGenerator | Hub UI Tetap ]]
+--[[ KALZZ HUB v25 FINAL | Close Range + ToF/Veil Source Asli ]]
 
--- Anti-Kick hook
 pcall(function()
     local o
     o = hookmetamethod(game, "__namecall", newcclosure(function(s, ...)
@@ -26,27 +25,49 @@ local IMG = "rbxassetid://134442738689157"
 local INVITE = "discord.gg/dCYTep9cY"
 
 -- ============================================================
--- CONFIG
+-- CONFIG — GACOR DEFAULT
 -- ============================================================
 local CFG = _G.KALZZ_CFG or {
-    tof_on = true, tof_fov = 500, tof_predict = 2.8, tof_maxdist = 2000,
-    veil_on = true, veil_fov = 320, veil_predict = 2.8, veil_maxdist = 2000,
-    parry_on = true, parry_radius = 14, parry_sensitive = 200, parry_aggro = true,
+    -- ToF
+    tof_on = true,
+    tof_fov = 500,
+    tof_predict = 2.8,
+    tof_maxdist = 2000,
+    tof_show_fov = true,
+    -- Veil
+    veil_on = true,
+    veil_fov = 320,
+    veil_predict = 2.8,
+    veil_maxdist = 2000,
+    veil_show_fov = true,
+    -- Close Range (khusus parry/attack jarak dekat)
+    close_on = true,
+    close_range = 18,           -- radius close range (studs)
+    close_priority = true,      -- prioritaskan target dekat
+    -- Parry
+    parry_on = true, parry_radius = 14, parry_sensitive = 200,
+    parry_aggro = true, parry_show_circle = true,
+    -- Fast Vault
     fast_vault = true,
+    -- Auto Gen
+    gene_on = false, gene_method = "SUCCESS",
+    -- ESP
     esp_k = true, esp_s = true, esp_g = true, esp_out = false, esp_range = 5000,
+    -- Misc
     fov_lock = false, fov_value = 120,
     ambient = true, boost_fps = true,
     alert = true,
-    -- Auto Gen (function-only)
-    gene_on = false, gene_method = "SUCCESS",
 }
 _G.KALZZ_CFG = CFG
 
 _G.KZ_ToFAimDir = nil
 _G.KZ_ToFStamp = 0
+_G.KZ_ToFTarget = nil
 _G.KZ_VeilState = _G.KZ_VeilState or {}
 _G.KZ_VeilState.lookVector = _G.KZ_VeilState.lookVector or nil
 _G.KZ_VeilState.stamp = _G.KZ_VeilState.stamp or 0
+_G.KZ_VeilState.target = nil
+_G.KZ_CloseRangeTarget = nil
 
 -- ============================================================
 -- HELPERS
@@ -115,7 +136,7 @@ task.delay(3, function()
             if not RC.veil and nl == "spearthrow" then RC.veil = o end
         end
     end
-    print("[KZ] RC: ToF="..tostring(RC.tof~=nil).." Veil="..tostring(RC.veil~=nil).." Parry="..tostring(RC.parry~=nil).." FV="..tostring(RC.fastvault~=nil))
+    print("[KZ] RC:", "ToF="..tostring(RC.tof~=nil), "Veil="..tostring(RC.veil~=nil), "Parry="..tostring(RC.parry~=nil), "FV="..tostring(RC.fastvault~=nil))
 end)
 
 -- ============================================================
@@ -133,13 +154,16 @@ local function getMuzzle()
     return r and (r.Position + Vector3.new(0, 1.5, 0)) or (Cam and Cam.CFrame.Position or Vector3.zero)
 end
 
-local function getClosest(wantKiller, fov, maxDist)
+-- Ambil target terdekat dengan filter jarak + prioritas
+local function getClosest(wantKiller, fov, maxDist, preferClose)
     if not Cam then Cam = Workspace.CurrentCamera end
     if not Cam then return nil end
     local ctr = Cam.ViewportSize / 2
     local myRoot = rtp(LP.Character)
     local myPos = myRoot and myRoot.Position or Cam.CFrame.Position
     local best, bestD = nil, fov or 500
+    local bestWorld = math.huge
+
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LP and p.Character then
             local k = isKiller(p)
@@ -152,7 +176,18 @@ local function getClosest(wantKiller, fov, maxDist)
                         local sp, on = Cam:WorldToViewportPoint(root.Position)
                         if on and sp.Z > 0 then
                             local d = (Vector2.new(sp.X, sp.Y) - ctr).Magnitude
-                            if d < bestD then bestD = d; best = root end
+                            -- Close range priority: target dalam radius close di-dahulukan
+                            if preferClose and wd <= (CFG.close_range or 18) then
+                                if wd < bestWorld then
+                                    bestWorld = wd
+                                    best = root
+                                    bestD = d
+                                end
+                            elseif not preferClose then
+                                if d < bestD then bestD = d; best = root end
+                            else
+                                if d < bestD and bestWorld == math.huge then bestD = d; best = root end
+                            end
                         end
                     end
                 end
@@ -163,15 +198,16 @@ local function getClosest(wantKiller, fov, maxDist)
 end
 
 -- ============================================================
--- AIM LOOP (ToF + Veil)
+-- AIM LOOP — ToF + Veil + Close Range
 -- ============================================================
 RSvc.Heartbeat:Connect(function()
     Cam = Workspace.CurrentCamera
     local now = os.clock()
     local localK = isLocalKiller()
 
+    -- ============ TOF (source asli) ============
     if CFG.tof_on and not localK then
-        local t = getClosest(true, CFG.tof_fov, CFG.tof_maxdist)
+        local t = getClosest(true, CFG.tof_fov, CFG.tof_maxdist, CFG.close_priority)
         if t and t.Parent then
             local o = getMuzzle()
             local vel = t.AssemblyLinearVelocity or Vector3.zero
@@ -182,13 +218,22 @@ RSvc.Heartbeat:Connect(function()
             if dir.Magnitude > 0.2 then
                 _G.KZ_ToFAimDir = dir.Unit
                 _G.KZ_ToFStamp = now
+                _G.KZ_ToFTarget = t
             end
+        else
+            _G.KZ_ToFTarget = nil
         end
+    else
+        _G.KZ_ToFTarget = nil
     end
-    if _G.KZ_ToFAimDir and (now - _G.KZ_ToFStamp) > 0.5 then _G.KZ_ToFAimDir = nil end
+    if _G.KZ_ToFAimDir and (now - _G.KZ_ToFStamp) > 0.5 then
+        _G.KZ_ToFAimDir = nil
+        _G.KZ_ToFTarget = nil
+    end
 
+    -- ============ VEIL (source asli) ============
     if CFG.veil_on and localK then
-        local t = getClosest(false, CFG.veil_fov, CFG.veil_maxdist)
+        local t = getClosest(false, CFG.veil_fov, CFG.veil_maxdist, CFG.close_priority)
         local my = rtp(LP.Character)
         if t and t.Parent and my then
             local o = my.Position
@@ -203,11 +248,206 @@ RSvc.Heartbeat:Connect(function()
             if dir.Magnitude > 0.2 then
                 _G.KZ_VeilState.lookVector = dir.Unit
                 _G.KZ_VeilState.stamp = now
+                _G.KZ_VeilState.target = t
             end
+        else
+            _G.KZ_VeilState.target = nil
         end
+    else
+        _G.KZ_VeilState.target = nil
     end
-    if _G.KZ_VeilState.lookVector and (now - _G.KZ_VeilState.stamp) > 0.5 then _G.KZ_VeilState.lookVector = nil end
+    if _G.KZ_VeilState.lookVector and (now - _G.KZ_VeilState.stamp) > 0.5 then
+        _G.KZ_VeilState.lookVector = nil
+        _G.KZ_VeilState.target = nil
+    end
+
+    -- ============ CLOSE RANGE TRACKER ============
+    if CFG.close_on then
+        local myRoot = rtp(LP.Character)
+        if myRoot then
+            local nearestClose = nil
+            local nearestDist = math.huge
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= LP and p.Character then
+                    local k = isKiller(p)
+                    local isEnemy = (localK and not k) or (not localK and k)
+                    if isEnemy then
+                        local en = rtp(p.Character)
+                        if en then
+                            local d = (en.Position - myRoot.Position).Magnitude
+                            if d <= (CFG.close_range or 18) and d < nearestDist then
+                                nearestDist = d
+                                nearestClose = en
+                            end
+                        end
+                    end
+                end
+            end
+            _G.KZ_CloseRangeTarget = nearestClose
+        end
+    else
+        _G.KZ_CloseRangeTarget = nil
+    end
 end)
+
+-- ============================================================
+-- FOV CIRCLE VISUAL (ToF + Veil)
+-- ============================================================
+do
+    local V = {}
+    pcall(function()
+        if typeof(Drawing) ~= "table" or not Drawing.new then return end
+        V.tofO = Drawing.new("Circle"); V.tofO.Thickness=3; V.tofO.NumSides=90; V.tofO.Filled=false; V.tofO.Color=Color3.new(0,0,0); V.tofO.Transparency=0.4; V.tofO.Visible=false
+        V.tof = Drawing.new("Circle"); V.tof.Thickness=1.8; V.tof.NumSides=90; V.tof.Filled=false; V.tof.Color=Color3.fromRGB(255,70,70); V.tof.Transparency=0.85; V.tof.Visible=false
+        V.veilO = Drawing.new("Circle"); V.veilO.Thickness=3; V.veilO.NumSides=90; V.veilO.Filled=false; V.veilO.Color=Color3.new(0,0,0); V.veilO.Transparency=0.4; V.veilO.Visible=false
+        V.veil = Drawing.new("Circle"); V.veil.Thickness=1.8; V.veil.NumSides=90; V.veil.Filled=false; V.veil.Color=Color3.fromRGB(80,160,240); V.veil.Transparency=0.85; V.veil.Visible=false
+        V.close = Drawing.new("Circle"); V.close.Thickness=2; V.close.NumSides=60; V.close.Filled=false; V.close.Color=Color3.fromRGB(255,200,80); V.close.Transparency=0.7; V.close.Visible=false
+        V.closeO = Drawing.new("Circle"); V.closeO.Thickness=4; V.closeO.NumSides=60; V.closeO.Filled=false; V.closeO.Color=Color3.new(0,0,0); V.closeO.Transparency=0.4; V.closeO.Visible=false
+        V.dot = Drawing.new("Circle"); V.dot.Thickness=1; V.dot.NumSides=16; V.dot.Filled=true; V.dot.Radius=4; V.dot.Visible=false
+        V.dotO = Drawing.new("Circle"); V.dotO.Thickness=3; V.dotO.NumSides=16; V.dotO.Filled=false; V.dotO.Color=Color3.new(0,0,0); V.dotO.Radius=6; V.dotO.Visible=false
+    end)
+    RSvc.RenderStepped:Connect(function()
+        if not V.tof then return end
+        local cam = Workspace.CurrentCamera
+        if not cam then
+            V.tof.Visible=false; V.tofO.Visible=false; V.veil.Visible=false; V.veilO.Visible=false
+            V.close.Visible=false; V.closeO.Visible=false; V.dot.Visible=false; V.dotO.Visible=false
+            return
+        end
+        local center = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2)
+        local localK = isLocalKiller()
+
+        -- ToF
+        if CFG.tof_show_fov and CFG.tof_on and not localK then
+            local r = CFG.tof_fov or 500
+            local col = _G.KZ_ToFTarget and Color3.fromRGB(80,255,120) or Color3.fromRGB(255,70,70)
+            V.tofO.Position=center; V.tofO.Radius=r+2; V.tofO.Visible=true
+            V.tof.Position=center; V.tof.Radius=r; V.tof.Color=col; V.tof.Visible=true
+        else V.tof.Visible=false; V.tofO.Visible=false end
+
+        -- Veil
+        if CFG.veil_show_fov and CFG.veil_on and localK then
+            local r = CFG.veil_fov or 320
+            local col = _G.KZ_VeilState.target and Color3.fromRGB(80,255,120) or Color3.fromRGB(80,160,240)
+            V.veilO.Position=center; V.veilO.Radius=r+2; V.veilO.Visible=true
+            V.veil.Position=center; V.veil.Radius=r; V.veil.Color=col; V.veil.Visible=true
+        else V.veil.Visible=false; V.veilO.Visible=false end
+
+        -- Close Range
+        if CFG.close_on then
+            local myRoot = rtp(LP.Character)
+            if myRoot then
+                local sp, on = cam:WorldToViewportPoint(myRoot.Position)
+                if on and sp.Z > 0 then
+                    local ctr = Vector2.new(sp.X, sp.Y)
+                    local hasClose = _G.KZ_CloseRangeTarget ~= nil
+                    local radiusPx = (CFG.close_range or 18) * 12
+                    V.close.Position=ctr; V.close.Radius=radiusPx; V.close.Color = hasClose and Color3.fromRGB(255,60,60) or Color3.fromRGB(255,200,80); V.close.Visible=true
+                    V.closeO.Position=ctr; V.closeO.Radius=radiusPx+2; V.closeO.Visible=true
+                else V.close.Visible=false; V.closeO.Visible=false end
+            else V.close.Visible=false; V.closeO.Visible=false end
+        else V.close.Visible=false; V.closeO.Visible=false end
+
+        -- Tracker dot
+        local tgt = _G.KZ_ToFTarget or _G.KZ_VeilState.target
+        if tgt and tgt.Parent then
+            local sp, on = cam:WorldToViewportPoint(tgt.Position)
+            if on and sp.Z > 0 then
+                V.dot.Position=Vector2.new(sp.X, sp.Y); V.dot.Color=Color3.fromRGB(80,255,120); V.dot.Visible=true
+                V.dotO.Position=Vector2.new(sp.X, sp.Y); V.dotO.Visible=true
+            else V.dot.Visible=false; V.dotO.Visible=false end
+        else V.dot.Visible=false; V.dotO.Visible=false end
+    end)
+end
+
+-- ============================================================
+-- PARRY CIRCLE VISUAL
+-- ============================================================
+do
+    local base = Instance.new("Part")
+    base.Name = "KZ_ParryCircle"
+    base.Size = Vector3.new(1, 0.05, 1)
+    base.Anchored = true
+    base.CanCollide = false
+    base.CanQuery = false
+    base.CanTouch = false
+    base.CastShadow = false
+    base.Material = Enum.Material.SmoothPlastic
+    base.Transparency = 1
+    base.Parent = Workspace
+
+    local sg = Instance.new("SurfaceGui", base)
+    sg.Face = Enum.NormalId.Top
+    sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+    sg.PixelsPerStud = 40
+    sg.LightInfluence = 0
+    sg.ZOffset = 1
+
+    local ring = Instance.new("Frame", sg)
+    ring.AnchorPoint = Vector2.new(0.5, 0.5); ring.Position = UDim2.fromScale(0.5, 0.5); ring.Size = UDim2.fromScale(0.96, 0.96)
+    ring.BackgroundTransparency = 1; ring.BorderSizePixel = 0
+    Instance.new("UICorner", ring).CornerRadius = UDim.new(1, 0)
+    local s1 = Instance.new("UIStroke", ring)
+    s1.Thickness = 5; s1.Color = Color3.fromRGB(100, 140, 230); s1.Transparency = 1
+    s1.LineJoinMode = Enum.LineJoinMode.Round
+
+    local ring2 = Instance.new("Frame", sg)
+    ring2.AnchorPoint = Vector2.new(0.5, 0.5); ring2.Position = UDim2.fromScale(0.5, 0.5); ring2.Size = UDim2.fromScale(0.86, 0.86)
+    ring2.BackgroundTransparency = 1; ring2.BorderSizePixel = 0
+    Instance.new("UICorner", ring2).CornerRadius = UDim.new(1, 0)
+    local s2 = Instance.new("UIStroke", ring2)
+    s2.Thickness = 2; s2.Color = Color3.fromRGB(180, 210, 255); s2.Transparency = 1
+    s2.LineJoinMode = Enum.LineJoinMode.Round
+
+    local fill = Instance.new("Frame", sg)
+    fill.AnchorPoint = Vector2.new(0.5, 0.5); fill.Position = UDim2.fromScale(0.5, 0.5); fill.Size = UDim2.fromScale(0.94, 0.94)
+    fill.BackgroundColor3 = Color3.fromRGB(100, 140, 230); fill.BackgroundTransparency = 1; fill.BorderSizePixel = 0
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+
+    local SC = Color3.fromRGB(100, 140, 230)
+    local DC = Color3.fromRGB(230, 90, 90)
+    local curC = SC
+    local fIn = 0
+    local prev = os.clock()
+    local pulse = 0
+
+    RSvc.Heartbeat:Connect(function()
+        local now = os.clock()
+        local dt = now - prev; prev = now
+        pulse = pulse + dt
+        local hrp = LP.Character and (LP.Character:FindFirstChild("HumanoidRootPart") or LP.Character.PrimaryPart)
+        local act = CFG.parry_on and CFG.parry_show_circle and hrp
+        if act then fIn = math.min(1, fIn + dt*5) else fIn = math.max(0, fIn - dt*5) end
+        if fIn <= 0.001 then base.Transparency = 1 return end
+        if act then
+            local hasE = false
+            for _, pl in ipairs(Players:GetPlayers()) do
+                if pl ~= LP and pl.Character and isKiller(pl) then
+                    local er = pl.Character:FindFirstChild("HumanoidRootPart")
+                    if er then
+                        local hu = pl.Character:FindFirstChildOfClass("Humanoid")
+                        if hu and hu.Health > 0 and (er.Position - hrp.Position).Magnitude <= (CFG.parry_radius or 14) then hasE = true; break end
+                    end
+                end
+            end
+            curC = curC:Lerp(hasE and DC or SC, math.min(1, dt*8))
+            local r = (CFG.parry_radius or 14) * 2
+            base.Size = Vector3.new(r, 0.05, r)
+            base.CFrame = CFrame.new(hrp.Position - Vector3.new(0, 2.95, 0))
+            local p = math.sin(pulse * (hasE and 7 or 4)) * (hasE and 0.14 or 0.06)
+            s1.Color = curC
+            s2.Color = curC:Lerp(Color3.fromRGB(255,255,255), 0.5)
+            fill.BackgroundColor3 = curC
+            s1.Transparency = math.clamp(1 - (fIn * ((hasE and 0.88 or 0.72) + p)), 0, 1)
+            s2.Transparency = math.clamp(1 - (fIn * ((hasE and 0.65 or 0.42) + p*0.6)), 0, 1)
+            fill.BackgroundTransparency = math.clamp(1 - (fIn * ((hasE and 0.10 or 0.06) + p*0.3)), 0, 1)
+        else
+            s1.Transparency = math.clamp(1 - (fIn * 0.72), 0, 1)
+            s2.Transparency = math.clamp(1 - (fIn * 0.42), 0, 1)
+            fill.BackgroundTransparency = math.clamp(1 - (fIn * 0.06), 0, 1)
+        end
+    end)
+end
 
 -- ============================================================
 -- UNIFIED HOOK
@@ -234,6 +474,7 @@ do
             local args = table.pack(...)
             local n = args.n
 
+            -- VEIL
             if hasVeil then
                 local match = (RC.veil and self == RC.veil)
                 if not match then
@@ -247,6 +488,7 @@ do
                 end
             end
 
+            -- TOF
             if hasToF then
                 local match = (RC.tof and self == RC.tof)
                 if not match then
@@ -277,8 +519,7 @@ do
 end
 
 -- ============================================================
--- AUTO GENERATOR v3 — FUNCTION ONLY (NO UI STANDALONE)
--- Control via CFG.gene_on + CFG.gene_method dari hub UI
+-- AUTO GENERATOR (function-only)
 -- ============================================================
 pcall(function()
     local SUCCESS_MIN, SUCCESS_MAX = 102, 116
@@ -287,7 +528,6 @@ pcall(function()
     local LastTrigger = 0
     local Busy = false
     local ScourgeActive = false
-    local ScourgeRound = 0
 
     local KingScourgeStart, KingScourgeEnd
     pcall(function()
@@ -327,7 +567,6 @@ pcall(function()
         if typeof(firesignal) == "function" then pcall(function() firesignal(Action.MouseButton1Down) end) end
         return true
     end
-
     local function GetAngle()
         if not Line or not Goal then return nil end
         return tonumber(Line.Rotation) or 0, tonumber(Goal.Rotation) or 0
@@ -354,39 +593,33 @@ pcall(function()
         if not Line or not Goal then return end
         Line.Rotation = (tonumber(Goal.Rotation) or 0) + 109
         TriggerAction()
-        ScourgeRound = ScourgeRound + 1
     end
 
     if KingScourgeStart then
         KingScourgeStart.OnClientEvent:Connect(function(p1, p2, p3)
             if not CFG.gene_on then return end
-            ScourgeActive = true; ScourgeRound = 0; Busy = false
+            ScourgeActive = true; Busy = false
             task.defer(function()
                 if CFG.gene_on and CFG.gene_method == "INSTANT" then InstantScourge() end
             end)
         end)
     end
     if KingScourgeEnd then
-        KingScourgeEnd.OnClientEvent:Connect(function(p)
-            ScourgeActive = false; Busy = false
-        end)
+        KingScourgeEnd.OnClientEvent:Connect(function() ScourgeActive = false; Busy = false end)
     end
 
     local PreviousVisible = false
-
     RSvc.RenderStepped:Connect(function()
         if not CFG.gene_on then PreviousVisible = false; return end
         if not Check then RefreshRefs() end
         if not Check then return end
         local Visible = Check.Visible
         local Mode = CFG.gene_method or "SUCCESS"
-
         if Visible and not PreviousVisible then
             Busy = false
             if not ScourgeActive and Mode == "INSTANT" then InstantNormal() end
         end
         PreviousVisible = Visible
-
         if Visible and not ScourgeActive and not Busy then
             local ShouldTrigger = false
             if Mode == "SUCCESS" then ShouldTrigger = IsSuccess()
@@ -396,7 +629,6 @@ pcall(function()
                 task.delay(0.07, function() Busy = false end)
             end
         end
-
         if ScourgeActive and Visible then
             if Mode == "SUCCESS" and not Busy and IsSuccess() then
                 Busy = true; TriggerAction()
@@ -411,7 +643,6 @@ pcall(function()
             end
         end
     end)
-
     task.spawn(function()
         local LastGoal = nil
         while true do
@@ -420,22 +651,16 @@ pcall(function()
                 RefreshRefs()
                 if Check and Check.Visible and Goal and Line then
                     local CG = tonumber(Goal.Rotation) or 0
-                    if LastGoal == nil then
-                        LastGoal = CG; InstantScourge()
-                    elseif math.abs(CG - LastGoal) > 1 then
-                        LastGoal = CG; InstantScourge()
-                    end
+                    if LastGoal == nil then LastGoal = CG; InstantScourge()
+                    elseif math.abs(CG - LastGoal) > 1 then LastGoal = CG; InstantScourge() end
                 end
             else LastGoal = nil end
         end
     end)
-
     LP.CharacterAdded:Connect(function()
         Busy = false; ScourgeActive = false; PreviousVisible = false
         task.wait(1); RefreshRefs()
     end)
-
-    print("[KZ] Auto Generator v3 function-only loaded (no UI)")
 end)
 
 -- ============================================================
@@ -482,9 +707,7 @@ pcall(function()
             local id = tostring(track.Animation.AnimationId or ""):match("%d+") or ""
             if not VALID[id] then return end
             local my, en = rtp(LP.Character), rtp(m)
-            if my and en and (my.Position - en.Position).Magnitude <= CFG.parry_radius + CFG.parry_sensitive * 0.01 then
-                doP()
-            end
+            if my and en and (my.Position - en.Position).Magnitude <= CFG.parry_radius + CFG.parry_sensitive * 0.01 then doP() end
         end)
     end
     task.spawn(function()
@@ -552,15 +775,9 @@ pcall(function()
                             hl.OutlineColor = hl.FillColor
                             hl.FillTransparency = CFG.esp_out and 1 or 0.55
                             hl.Enabled = true
-                        elseif cache[pl] then
-                            cache[pl].Enabled = false
-                        end
-                    elseif cache[pl] then
-                        cache[pl].Enabled = false
-                    end
-                elseif cache[pl] then
-                    cache[pl]:Destroy(); cache[pl] = nil
-                end
+                        elseif cache[pl] then cache[pl].Enabled = false end
+                    elseif cache[pl] then cache[pl].Enabled = false end
+                elseif cache[pl] then cache[pl]:Destroy(); cache[pl] = nil end
             end
             if CFG.esp_g then
                 local now = os.clock()
@@ -569,9 +786,7 @@ pcall(function()
                     for _, o in ipairs(Workspace:GetDescendants()) do
                         if (o:IsA("Model") or o:IsA("BasePart")) and o.Parent then
                             local n = o.Name:lower()
-                            if (n:find("generator") or n:find("fuse")) and n ~= "gen" then
-                                table.insert(genCache, o)
-                            end
+                            if (n:find("generator") or n:find("fuse")) and n ~= "gen" then table.insert(genCache, o) end
                         end
                     end
                     genT = now
@@ -597,9 +812,7 @@ pcall(function()
                             hl.OutlineColor = Color3.fromRGB(80,220,120)
                             hl.FillTransparency = CFG.esp_out and 1 or 0.6
                             hl.Enabled = true
-                        elseif cache[o] then
-                            cache[o]:Destroy(); cache[o] = nil
-                        end
+                        elseif cache[o] then cache[o]:Destroy(); cache[o] = nil end
                     end
                 end
             end
@@ -712,26 +925,16 @@ end)
 -- CUSTOM UI HUB
 -- ============================================================
 local COL = {
-    bg = Color3.fromRGB(15,15,18),
-    panel = Color3.fromRGB(20,20,24),
-    side = Color3.fromRGB(17,17,21),
-    card = Color3.fromRGB(26,26,32),
-    tabOn = Color3.fromRGB(38,38,46),
-    brd = Color3.fromRGB(48,48,56),
-    brdS = Color3.fromRGB(38,38,46),
-    tx = Color3.fromRGB(240,240,245),
-    txD = Color3.fromRGB(160,160,175),
-    txF = Color3.fromRGB(110,110,125),
-    acc = Color3.fromRGB(100,140,230),
-    off = Color3.fromRGB(52,52,62),
+    bg = Color3.fromRGB(15,15,18), panel = Color3.fromRGB(20,20,24), side = Color3.fromRGB(17,17,21),
+    card = Color3.fromRGB(26,26,32), tabOn = Color3.fromRGB(38,38,46), brd = Color3.fromRGB(48,48,56),
+    brdS = Color3.fromRGB(38,38,46), tx = Color3.fromRGB(240,240,245), txD = Color3.fromRGB(160,160,175),
+    txF = Color3.fromRGB(110,110,125), acc = Color3.fromRGB(100,140,230), off = Color3.fromRGB(52,52,62),
     red = Color3.fromRGB(220,80,80),
 }
-
 local function getParentTarget()
     if gethui then local ok, h = pcall(gethui); if ok and h then return h end end
     return CoreGui
 end
-
 local function cR(o, r) local c = Instance.new("UICorner", o); c.CornerRadius = UDim.new(0, r or 8); return c end
 local function cS(o, col, t, tr)
     local s = Instance.new("UIStroke", o)
@@ -756,21 +959,18 @@ Main.Size = UDim2.fromOffset(580, 480)
 Main.Position = UDim2.new(0.5, -290, 0.5, -240)
 Main.BackgroundColor3 = COL.bg
 Main.BackgroundTransparency = 0.30
-Main.BorderSizePixel = 0
-Main.ZIndex = 10
+Main.BorderSizePixel = 0; Main.ZIndex = 10
 cR(Main, 10); cS(Main, COL.brd, 1, 0.4)
 
 local Hdr = Instance.new("Frame", Main)
 Hdr.Size = UDim2.new(1, 0, 0, 48)
 Hdr.BackgroundColor3 = COL.panel
 Hdr.BackgroundTransparency = 0.3
-Hdr.BorderSizePixel = 0
-Hdr.ZIndex = 11
-cR(Hdr, 10)
+Hdr.BorderSizePixel = 0; Hdr.ZIndex = 11; cR(Hdr, 10)
 
 local Title = Instance.new("TextLabel", Hdr)
 Title.Size = UDim2.new(1, -140, 0, 20); Title.Position = UDim2.fromOffset(18, 8)
-Title.BackgroundTransparency = 1; Title.Text = "KALZZ HUB v22"
+Title.BackgroundTransparency = 1; Title.Text = "KALZZ HUB v25"
 Title.TextColor3 = COL.tx; Title.Font = Enum.Font.GothamBold; Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left; Title.ZIndex = 12
 
@@ -1067,14 +1267,16 @@ end
 -- ============================================================
 -- TABS
 -- ============================================================
-local TInfo = W:AddTab({Title = "Info"})
-local TSurv = W:AddTab({Title = "Survivor"})
-local TKil  = W:AddTab({Title = "Killer"})
-local TEsp  = W:AddTab({Title = "ESP"})
-local TMisc = W:AddTab({Title = "Misc"})
+local TInfo   = W:AddTab({Title = "Info"})
+local TSurv   = W:AddTab({Title = "Survivor"})
+local TKil    = W:AddTab({Title = "Killer"})
+local TClose  = W:AddTab({Title = "Close Range"})
+local TEsp    = W:AddTab({Title = "ESP"})
+local TMisc   = W:AddTab({Title = "Misc"})
 
+-- INFO
 TInfo:Banner({Image = IMG})
-TInfo:Sec("KALZZ HUB v22")
+TInfo:Sec("KALZZ HUB v25")
 TInfo:Btn({Title = "Copy Discord Invite", Callback = function()
     pcall(function() if setclipboard then setclipboard("https://"..INVITE) end end)
 end})
@@ -1084,11 +1286,14 @@ end})
 TInfo:Btn({Title = "Print Aim State", Callback = function()
     print("[KZ] ToFAimDir:", _G.KZ_ToFAimDir)
     print("[KZ] VeilLook:", _G.KZ_VeilState.lookVector)
+    print("[KZ] CloseRange:", _G.KZ_CloseRangeTarget)
     print("[KZ] Role:", isLocalKiller() and "Killer" or "Survivor")
 end})
 
+-- SURVIVOR
 TSurv:Sec("Silent Aim (ToF)")
 TSurv:Tog("tof_on", {Title = "Enable ToF", Default = CFG.tof_on, Callback = function(v) CFG.tof_on = v end})
+TSurv:Tog("tof_show_fov", {Title = "Show FOV Circle", Default = CFG.tof_show_fov, Callback = function(v) CFG.tof_show_fov = v end})
 TSurv:Sl("tof_fov", {Title = "FOV", Min = 1, Max = 600, Default = CFG.tof_fov, Callback = function(v) CFG.tof_fov = v end})
 TSurv:Sl("tof_predict", {Title = "Predict x10", Min = 10, Max = 50, Default = math.floor(CFG.tof_predict * 10), Callback = function(v) CFG.tof_predict = v / 10 end})
 TSurv:Sl("tof_maxdist", {Title = "Max Distance", Min = 100, Max = 3000, Default = CFG.tof_maxdist, Callback = function(v) CFG.tof_maxdist = v end})
@@ -1099,6 +1304,7 @@ TSurv:Drop("gene_method", {Title = "Method", Values = {"SUCCESS", "NEUTRAL", "IN
 
 TSurv:Sec("Auto Parry")
 TSurv:Tog("parry_on", {Title = "Enable Parry", Default = CFG.parry_on, Callback = function(v) CFG.parry_on = v end})
+TSurv:Tog("parry_show_circle", {Title = "Show Parry Circle", Default = CFG.parry_show_circle, Callback = function(v) CFG.parry_show_circle = v end})
 TSurv:Sl("parry_radius", {Title = "Radius", Min = 1, Max = 30, Default = CFG.parry_radius, Callback = function(v) CFG.parry_radius = v end})
 TSurv:Sl("parry_sensitive", {Title = "Sensitive", Min = 0, Max = 500, Default = CFG.parry_sensitive, Callback = function(v) CFG.parry_sensitive = v end})
 TSurv:Tog("parry_aggro", {Title = "Aggressive", Default = CFG.parry_aggro, Callback = function(v) CFG.parry_aggro = v end})
@@ -1106,18 +1312,33 @@ TSurv:Tog("parry_aggro", {Title = "Aggressive", Default = CFG.parry_aggro, Callb
 TSurv:Sec("Movement")
 TSurv:Tog("fast_vault", {Title = "Fast Vault", Default = CFG.fast_vault, Callback = function(v) CFG.fast_vault = v end})
 
+-- KILLER
 TKil:Sec("Silent Aim (Veil)")
 TKil:Tog("veil_on", {Title = "Enable Veil", Default = CFG.veil_on, Callback = function(v) CFG.veil_on = v end})
+TKil:Tog("veil_show_fov", {Title = "Show FOV Circle", Default = CFG.veil_show_fov, Callback = function(v) CFG.veil_show_fov = v end})
 TKil:Sl("veil_fov", {Title = "FOV", Min = 1, Max = 600, Default = CFG.veil_fov, Callback = function(v) CFG.veil_fov = v end})
 TKil:Sl("veil_predict", {Title = "Predict x10", Min = 10, Max = 50, Default = math.floor(CFG.veil_predict * 10), Callback = function(v) CFG.veil_predict = v / 10 end})
 TKil:Sl("veil_maxdist", {Title = "Max Distance", Min = 100, Max = 3000, Default = CFG.veil_maxdist, Callback = function(v) CFG.veil_maxdist = v end})
 
+-- CLOSE RANGE
+TClose:Sec("Close Range Priority")
+TClose:Tog("close_on", {Title = "Enable Close Range", Default = CFG.close_on, Callback = function(v) CFG.close_on = v end})
+TClose:Tog("close_priority", {Title = "Priority (Target Dekat Dulu)", Default = CFG.close_priority, Callback = function(v) CFG.close_priority = v end})
+TClose:Sl("close_range", {Title = "Range (studs)", Min = 5, Max = 40, Default = CFG.close_range, Callback = function(v) CFG.close_range = v end})
+
+TClose:Sec("Description")
+TClose:Btn({Title = "Enable Close Range = prioritaskan target dalam radius", Callback = function() end})
+TClose:Btn({Title = "Priority ON = ToF/Veil pilih target terdekat", Callback = function() end})
+TClose:Btn({Title = "Priority OFF = pilih target paling center crosshair", Callback = function() end})
+
+-- ESP
 TEsp:Sec("ESP Targets")
 TEsp:Tog("esp_k", {Title = "Killer ESP", Default = CFG.esp_k, Callback = function(v) CFG.esp_k = v end})
 TEsp:Tog("esp_s", {Title = "Survivor ESP", Default = CFG.esp_s, Callback = function(v) CFG.esp_s = v end})
 TEsp:Tog("esp_g", {Title = "Generator ESP", Default = CFG.esp_g, Callback = function(v) CFG.esp_g = v end})
 TEsp:Tog("esp_out", {Title = "Outline Only", Default = CFG.esp_out, Callback = function(v) CFG.esp_out = v end})
 
+-- MISC
 TMisc:Sec("Vision")
 TMisc:Tog("fov_lock", {Title = "FOV Lock", Default = CFG.fov_lock, Callback = function(v) CFG.fov_lock = v end})
 TMisc:Sl("fov_value", {Title = "FOV Value", Min = 60, Max = 140, Default = CFG.fov_value, Callback = function(v) CFG.fov_value = v end})
@@ -1138,7 +1359,7 @@ end})
 W:Show("Info")
 
 -- ============================================================
--- FLOAT BUTTON KZ
+-- FLOAT BUTTON
 -- ============================================================
 pcall(function()
     local FG = Instance.new("ScreenGui")
@@ -1173,12 +1394,9 @@ pcall(function()
     bgCircle.ZIndex = -1
     cR(bgCircle, 27)
     local bgStroke = Instance.new("UIStroke", bgCircle)
-    bgStroke.Color = COL.acc
-    bgStroke.Thickness = 2
-    bgStroke.Transparency = 0.35
+    bgStroke.Color = COL.acc; bgStroke.Thickness = 2; bgStroke.Transparency = 0.35
 
     _G.KZ_FloatButton = FB
-
     local fD, fStart, fPos, fMoved = false, nil, nil, false
     FB.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
@@ -1207,9 +1425,6 @@ pcall(function()
     _G.KZ_ShowFloat = function(state) FB.Visible = state end
 end)
 
--- ============================================================
--- TOGGLE UI
--- ============================================================
 _G.KZ_ToggleUI = function()
     if Main.Visible then
         Main.Visible = false
@@ -1229,7 +1444,6 @@ ClsBtn.MouseButton1Click:Connect(function()
     if _G.KZ_ShowFloat then _G.KZ_ShowFloat(true) end
 end)
 
--- UI watchdog
 task.spawn(function()
     while true do
         task.wait(2)
@@ -1242,9 +1456,6 @@ task.spawn(function()
     end
 end)
 
--- ============================================================
--- KEYBINDS
--- ============================================================
 UIS.InputBegan:Connect(function(i, g)
     if g then return end
     if i.KeyCode == Enum.KeyCode.V then CFG.tof_on = not CFG.tof_on end
@@ -1258,8 +1469,12 @@ UIS.InputBegan:Connect(function(i, g)
 end)
 
 print("==========================================")
-print("[KALZZ HUB v22] FINAL")
-print("Auto Gen: FUNCTION-ONLY (no VD_AutoGenerator UI)")
-print("Hook    : 1x unified (AntiKick + ToF + Veil)")
-print("Keybind : V=ToF | B=Veil | P=Parry | RShift=UI")
+print("[KALZZ HUB v25] FINAL")
+print("Close Range   : " .. tostring(CFG.close_on) .. " | Range: " .. CFG.close_range .. " studs")
+print("ToF Circle    : merah → hijau lock")
+print("Veil Circle   : biru → hijau lock")
+print("Close Circle  : kuning → merah (ada target dekat)")
+print("Parry Circle  : biru → merah")
+print("Hook          : 1x unified")
+print("Keybind       : V=ToF | B=Veil | P=Parry | RShift=UI")
 print("==========================================")
