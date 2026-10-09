@@ -1,4 +1,4 @@
---[[ KALZZ HUB V2 CLEAN | No Yellow Circle | Square Toggle | No Blue ]]
+--[[ KALZZ HUB V3 CLEAN | FOV + Parry Circle White | ESP | No Blue ]]
 
 pcall(function()
     local o
@@ -25,9 +25,9 @@ local IMG = "rbxassetid://134442738689157"
 local INVITE = "discord.gg/dCYTep9cY"
 
 local CFG = _G.KALZZ_CFG or {
-    tof_on = true, tof_fov = 500, tof_predict = 2.8, tof_maxdist = 2000,
-    veil_on = true, veil_fov = 320, veil_predict = 2.8, veil_maxdist = 2000,
-    parry_on = true, parry_radius = 14, parry_sensitive = 200, parry_aggro = true,
+    tof_on = true, tof_fov = 500, tof_predict = 2.8, tof_maxdist = 2000, tof_show_fov = true,
+    veil_on = true, veil_fov = 320, veil_predict = 2.8, veil_maxdist = 2000, veil_show_fov = true,
+    parry_on = true, parry_radius = 14, parry_sensitive = 200, parry_aggro = true, parry_show_circle = true,
     fast_vault = true,
     esp_k = true, esp_s = true, esp_g = true, esp_out = false, esp_range = 5000,
     fov_lock = false, fov_value = 120,
@@ -39,9 +39,11 @@ _G.KALZZ_CFG = CFG
 
 _G.KZ_ToFAimDir = nil
 _G.KZ_ToFStamp = 0
+_G.KZ_ToFTarget = nil
 _G.KZ_VeilState = _G.KZ_VeilState or {}
 _G.KZ_VeilState.lookVector = _G.KZ_VeilState.lookVector or nil
 _G.KZ_VeilState.stamp = _G.KZ_VeilState.stamp or 0
+_G.KZ_VeilState.target = nil
 
 -- ============================================================
 -- HELPERS
@@ -166,7 +168,7 @@ local function pickTarget(wantKiller, fovRadius, maxDist)
 end
 
 -- ============================================================
--- AIM LOOP — Close & Long Range
+-- AIM LOOP
 -- ============================================================
 RSvc.Heartbeat:Connect(function()
     Cam = Workspace.CurrentCamera
@@ -187,11 +189,17 @@ RSvc.Heartbeat:Connect(function()
             if dir.Magnitude > 0.2 then
                 _G.KZ_ToFAimDir = dir.Unit
                 _G.KZ_ToFStamp = now
+                _G.KZ_ToFTarget = t
             end
+        else
+            _G.KZ_ToFTarget = nil
         end
+    else
+        _G.KZ_ToFTarget = nil
     end
     if _G.KZ_ToFAimDir and (now - _G.KZ_ToFStamp) > 0.5 then
         _G.KZ_ToFAimDir = nil
+        _G.KZ_ToFTarget = nil
     end
 
     if CFG.veil_on and localK then
@@ -214,13 +222,157 @@ RSvc.Heartbeat:Connect(function()
             if dir.Magnitude > 0.2 then
                 _G.KZ_VeilState.lookVector = dir.Unit
                 _G.KZ_VeilState.stamp = now
+                _G.KZ_VeilState.target = t
             end
+        else
+            _G.KZ_VeilState.target = nil
         end
+    else
+        _G.KZ_VeilState.target = nil
     end
     if _G.KZ_VeilState.lookVector and (now - _G.KZ_VeilState.stamp) > 0.5 then
         _G.KZ_VeilState.lookVector = nil
+        _G.KZ_VeilState.target = nil
     end
 end)
+
+-- ============================================================
+-- FOV CIRCLE VISUAL — PUTIH
+-- ============================================================
+do
+    local V = {}
+    pcall(function()
+        if typeof(Drawing) ~= "table" or not Drawing.new then return end
+        V.tofO = Drawing.new("Circle"); V.tofO.Thickness=3; V.tofO.NumSides=90; V.tofO.Filled=false; V.tofO.Color=Color3.new(0,0,0); V.tofO.Transparency=0.5; V.tofO.Visible=false
+        V.tof = Drawing.new("Circle"); V.tof.Thickness=1.8; V.tof.NumSides=90; V.tof.Filled=false; V.tof.Color=Color3.fromRGB(255,255,255); V.tof.Transparency=0.8; V.tof.Visible=false
+        V.veilO = Drawing.new("Circle"); V.veilO.Thickness=3; V.veilO.NumSides=90; V.veilO.Filled=false; V.veilO.Color=Color3.new(0,0,0); V.veilO.Transparency=0.5; V.veilO.Visible=false
+        V.veil = Drawing.new("Circle"); V.veil.Thickness=1.8; V.veil.NumSides=90; V.veil.Filled=false; V.veil.Color=Color3.fromRGB(255,255,255); V.veil.Transparency=0.8; V.veil.Visible=false
+        V.dot = Drawing.new("Circle"); V.dot.Thickness=1; V.dot.NumSides=16; V.dot.Filled=true; V.dot.Radius=4; V.dot.Visible=false
+        V.dotO = Drawing.new("Circle"); V.dotO.Thickness=3; V.dotO.NumSides=16; V.dotO.Filled=false; V.dotO.Color=Color3.new(0,0,0); V.dotO.Radius=6; V.dotO.Visible=false
+    end)
+    RSvc.RenderStepped:Connect(function()
+        if not V.tof then return end
+        local cam = Workspace.CurrentCamera
+        if not cam then
+            V.tof.Visible=false; V.tofO.Visible=false; V.veil.Visible=false; V.veilO.Visible=false
+            V.dot.Visible=false; V.dotO.Visible=false
+            return
+        end
+        local center = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2)
+        local localK = isLocalKiller()
+
+        -- ToF Circle (survivor only) — PUTIH
+        if CFG.tof_show_fov and CFG.tof_on and not localK then
+            local r = CFG.tof_fov or 500
+            local col = _G.KZ_ToFTarget and Color3.fromRGB(255,255,255) or Color3.fromRGB(200,200,210)
+            V.tofO.Position=center; V.tofO.Radius=r+2; V.tofO.Visible=true
+            V.tof.Position=center; V.tof.Radius=r; V.tof.Color=col; V.tof.Visible=true
+        else V.tof.Visible=false; V.tofO.Visible=false end
+
+        -- Veil Circle (killer only) — PUTIH
+        if CFG.veil_show_fov and CFG.veil_on and localK then
+            local r = CFG.veil_fov or 320
+            local col = _G.KZ_VeilState.target and Color3.fromRGB(255,255,255) or Color3.fromRGB(200,200,210)
+            V.veilO.Position=center; V.veilO.Radius=r+2; V.veilO.Visible=true
+            V.veil.Position=center; V.veil.Radius=r; V.veil.Color=col; V.veil.Visible=true
+        else V.veil.Visible=false; V.veilO.Visible=false end
+
+        -- Tracker dot
+        local tgt = _G.KZ_ToFTarget or _G.KZ_VeilState.target
+        if tgt and tgt.Parent then
+            local sp, on = cam:WorldToViewportPoint(tgt.Position)
+            if on and sp.Z > 0 then
+                V.dot.Position=Vector2.new(sp.X, sp.Y); V.dot.Color=Color3.fromRGB(255,255,255); V.dot.Visible=true
+                V.dotO.Position=Vector2.new(sp.X, sp.Y); V.dotO.Visible=true
+            else V.dot.Visible=false; V.dotO.Visible=false end
+        else V.dot.Visible=false; V.dotO.Visible=false end
+    end)
+end
+
+-- ============================================================
+-- PARRY CIRCLE — PUTIH (bukan kuning)
+-- ============================================================
+do
+    local base = Instance.new("Part")
+    base.Name = "KZ_ParryCircle"
+    base.Size = Vector3.new(1, 0.05, 1)
+    base.Anchored = true
+    base.CanCollide = false
+    base.CanQuery = false
+    base.CanTouch = false
+    base.CastShadow = false
+    base.Material = Enum.Material.SmoothPlastic
+    base.Transparency = 1
+    base.Parent = Workspace
+
+    local sg = Instance.new("SurfaceGui", base)
+    sg.Face = Enum.NormalId.Top
+    sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+    sg.PixelsPerStud = 40
+    sg.LightInfluence = 0
+    sg.ZOffset = 1
+
+    local ring = Instance.new("Frame", sg)
+    ring.AnchorPoint = Vector2.new(0.5, 0.5); ring.Position = UDim2.fromScale(0.5, 0.5); ring.Size = UDim2.fromScale(0.96, 0.96)
+    ring.BackgroundTransparency = 1; ring.BorderSizePixel = 0
+    Instance.new("UICorner", ring).CornerRadius = UDim.new(1, 0)
+    local s1 = Instance.new("UIStroke", ring)
+    s1.Thickness = 4; s1.Color = Color3.fromRGB(255, 255, 255); s1.Transparency = 1
+    s1.LineJoinMode = Enum.LineJoinMode.Round
+
+    local ring2 = Instance.new("Frame", sg)
+    ring2.AnchorPoint = Vector2.new(0.5, 0.5); ring2.Position = UDim2.fromScale(0.5, 0.5); ring2.Size = UDim2.fromScale(0.88, 0.88)
+    ring2.BackgroundTransparency = 1; ring2.BorderSizePixel = 0
+    Instance.new("UICorner", ring2).CornerRadius = UDim.new(1, 0)
+    local s2 = Instance.new("UIStroke", ring2)
+    s2.Thickness = 1.5; s2.Color = Color3.fromRGB(255, 255, 255); s2.Transparency = 1
+    s2.LineJoinMode = Enum.LineJoinMode.Round
+
+    local fill = Instance.new("Frame", sg)
+    fill.AnchorPoint = Vector2.new(0.5, 0.5); fill.Position = UDim2.fromScale(0.5, 0.5); fill.Size = UDim2.fromScale(0.94, 0.94)
+    fill.BackgroundColor3 = Color3.fromRGB(255, 255, 255); fill.BackgroundTransparency = 1; fill.BorderSizePixel = 0
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+
+    local fIn = 0
+    local prev = os.clock()
+    local pulse = 0
+
+    RSvc.Heartbeat:Connect(function()
+        local now = os.clock()
+        local dt = now - prev; prev = now
+        pulse = pulse + dt
+        local hrp = LP.Character and (LP.Character:FindFirstChild("HumanoidRootPart") or LP.Character.PrimaryPart)
+        local act = CFG.parry_on and CFG.parry_show_circle and hrp
+        if act then fIn = math.min(1, fIn + dt*5) else fIn = math.max(0, fIn - dt*5) end
+        if fIn <= 0.001 then base.Transparency = 1 return end
+        if act then
+            local hasE = false
+            for _, pl in ipairs(Players:GetPlayers()) do
+                if pl ~= LP and pl.Character and isKiller(pl) then
+                    local er = pl.Character:FindFirstChild("HumanoidRootPart")
+                    if er then
+                        local hu = pl.Character:FindFirstChildOfClass("Humanoid")
+                        if hu and hu.Health > 0 and (er.Position - hrp.Position).Magnitude <= (CFG.parry_radius or 14) then hasE = true; break end
+                    end
+                end
+            end
+            local r = (CFG.parry_radius or 14) * 2
+            base.Size = Vector3.new(r, 0.05, r)
+            base.CFrame = CFrame.new(hrp.Position - Vector3.new(0, 2.95, 0))
+            local p = math.sin(pulse * (hasE and 7 or 4)) * (hasE and 0.14 or 0.06)
+            s1.Color = Color3.fromRGB(255,255,255)
+            s2.Color = Color3.fromRGB(255,255,255)
+            fill.BackgroundColor3 = Color3.fromRGB(255,255,255)
+            s1.Transparency = math.clamp(1 - (fIn * ((hasE and 0.85 or 0.65) + p)), 0, 1)
+            s2.Transparency = math.clamp(1 - (fIn * ((hasE and 0.6 or 0.4) + p*0.6)), 0, 1)
+            fill.BackgroundTransparency = math.clamp(1 - (fIn * ((hasE and 0.10 or 0.05) + p*0.3)), 0, 1)
+        else
+            s1.Transparency = math.clamp(1 - (fIn * 0.65), 0, 1)
+            s2.Transparency = math.clamp(1 - (fIn * 0.4), 0, 1)
+            fill.BackgroundTransparency = math.clamp(1 - (fIn * 0.05), 0, 1)
+        end
+    end)
+end
 
 -- ============================================================
 -- UNIFIED HOOK
@@ -421,7 +573,7 @@ pcall(function()
 end)
 
 -- ============================================================
--- AUTO PARRY (NO CIRCLE)
+-- AUTO PARRY
 -- ============================================================
 pcall(function()
     local VALID = {
@@ -505,7 +657,7 @@ pcall(function()
 end)
 
 -- ============================================================
--- ESP
+-- ESP — all features
 -- ============================================================
 pcall(function()
     local cache = {}
@@ -678,7 +830,7 @@ pcall(function()
 end)
 
 -- ============================================================
--- UI HUB — Neutral, Square Toggle, No Blue
+-- UI HUB
 -- ============================================================
 local COL = {
     bg = Color3.fromRGB(15,15,18),
@@ -872,7 +1024,6 @@ function W:AddTab(cfg)
         return self
     end
 
-    -- ====== TOGGLE KOTAK ======
     function t:Tog(id, c)
         local row = Instance.new("Frame", p)
         row.Size = UDim2.new(1, -8, 0, 42); row.Position = UDim2.fromOffset(4, self.Y)
@@ -887,8 +1038,6 @@ function W:AddTab(cfg)
         l2.TextXAlignment = Enum.TextXAlignment.Left; l2.ZIndex = 15
 
         local st = c.Default or false
-
-        -- Toggle KOTAK (radius kecil)
         local tr = Instance.new("Frame", row)
         tr.Size = UDim2.fromOffset(40, 22); tr.Position = UDim2.new(1, -54, 0.5, -11)
         tr.BackgroundColor3 = st and Color3.fromRGB(255,255,255) or COL.off
@@ -1076,6 +1225,7 @@ end})
 
 TSurv:Sec("Silent Aim (ToF)")
 TSurv:Tog("tof_on", {Title = "Enable ToF", Default = CFG.tof_on, Callback = function(v) CFG.tof_on = v end})
+TSurv:Tog("tof_show_fov", {Title = "Show FOV Circle", Default = CFG.tof_show_fov, Callback = function(v) CFG.tof_show_fov = v end})
 TSurv:Sl("tof_fov", {Title = "FOV", Min = 1, Max = 600, Default = CFG.tof_fov, Callback = function(v) CFG.tof_fov = v end})
 TSurv:Sl("tof_predict", {Title = "Predict x10", Min = 10, Max = 50, Default = math.floor(CFG.tof_predict * 10), Callback = function(v) CFG.tof_predict = v / 10 end})
 TSurv:Sl("tof_maxdist", {Title = "Max Distance", Min = 100, Max = 3000, Default = CFG.tof_maxdist, Callback = function(v) CFG.tof_maxdist = v end})
@@ -1086,6 +1236,7 @@ TSurv:Drop("gene_method", {Title = "Method", Values = {"SUCCESS", "NEUTRAL", "IN
 
 TSurv:Sec("Auto Parry")
 TSurv:Tog("parry_on", {Title = "Enable Parry", Default = CFG.parry_on, Callback = function(v) CFG.parry_on = v end})
+TSurv:Tog("parry_show_circle", {Title = "Show Parry Circle", Default = CFG.parry_show_circle, Callback = function(v) CFG.parry_show_circle = v end})
 TSurv:Sl("parry_radius", {Title = "Radius", Min = 1, Max = 30, Default = CFG.parry_radius, Callback = function(v) CFG.parry_radius = v end})
 TSurv:Sl("parry_sensitive", {Title = "Sensitive", Min = 0, Max = 500, Default = CFG.parry_sensitive, Callback = function(v) CFG.parry_sensitive = v end})
 TSurv:Tog("parry_aggro", {Title = "Aggressive", Default = CFG.parry_aggro, Callback = function(v) CFG.parry_aggro = v end})
@@ -1095,6 +1246,7 @@ TSurv:Tog("fast_vault", {Title = "Fast Vault", Default = CFG.fast_vault, Callbac
 
 TKil:Sec("Silent Aim (Veil)")
 TKil:Tog("veil_on", {Title = "Enable Veil", Default = CFG.veil_on, Callback = function(v) CFG.veil_on = v end})
+TKil:Tog("veil_show_fov", {Title = "Show FOV Circle", Default = CFG.veil_show_fov, Callback = function(v) CFG.veil_show_fov = v end})
 TKil:Sl("veil_fov", {Title = "FOV", Min = 1, Max = 600, Default = CFG.veil_fov, Callback = function(v) CFG.veil_fov = v end})
 TKil:Sl("veil_predict", {Title = "Predict x10", Min = 10, Max = 50, Default = math.floor(CFG.veil_predict * 10), Callback = function(v) CFG.veil_predict = v / 10 end})
 TKil:Sl("veil_maxdist", {Title = "Max Distance", Min = 100, Max = 3000, Default = CFG.veil_maxdist, Callback = function(v) CFG.veil_maxdist = v end})
@@ -1233,9 +1385,10 @@ UIS.InputBegan:Connect(function(i, g)
 end)
 
 print("==========================================")
-print("[KALZZ HUB V2 CLEAN]")
-print("Parry Circle: REMOVED (no yellow)")
-print("FOV Circle  : REMOVED")
-print("Toggle      : Square (kotak, putih)")
-print("UI          : No blue, transparent")
+print("[KALZZ HUB V3 CLEAN]")
+print("FOV Circle  : ToF + Veil (putih)")
+print("Parry Circle: putih (bukan kuning)")
+print("ESP         : K/S/G + Outline")
+print("Toggle      : kotak putih")
+print("No blue     : semua netral")
 print("==========================================")
