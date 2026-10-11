@@ -1,13 +1,8 @@
---[[ KALZZ HUB V5 FINAL + STUN NOTIF + CLEAN ESP | Full Script ]]
+--[[ KALZZ HUB V5 FINAL | UNIFIED NAMECALL | STUN | CLEAN ESP | AUTO PARRY v2 ]]
 
-pcall(function()
-    local o
-    o = hookmetamethod(game, "__namecall", newcclosure(function(s, ...)
-        if getnamecallmethod() == "Kick" and s == game:GetService("Players").LocalPlayer then return end
-        return o(s, ...)
-    end))
-end)
-
+-- ============================================================
+-- SERVICES
+-- ============================================================
 local Players    = game:GetService("Players")
 local RS         = game:GetService("ReplicatedStorage")
 local RSvc       = game:GetService("RunService")
@@ -24,10 +19,13 @@ local Cam = Workspace.CurrentCamera
 local IMG = "rbxassetid://134442738689157"
 local INVITE = "discord.gg/dCYTep9cY"
 
+-- ============================================================
+-- CONFIG
+-- ============================================================
 local CFG = _G.KALZZ_CFG or {
     tof_on = true, tof_fov = 500, tof_predict = 2.8, tof_maxdist = 2000, tof_show_fov = true,
     veil_on = true, veil_fov = 320, veil_predict = 2.8, veil_maxdist = 2000, veil_show_fov = true,
-    parry_on = true, parry_radius = 14, parry_sensitive = 200, parry_aggro = true, parry_show_circle = true,
+    parry_on = true, parry_radius = 13, parry_sensitive = 200, parry_aggro = true, parry_show_circle = true, parry_antifake = true,
     fast_vault = true,
     esp_k = true, esp_s = true, esp_g = true,
     esp_gen_txt = true, esp_item = true,
@@ -48,6 +46,9 @@ _G.KZ_VeilState.lookVector = _G.KZ_VeilState.lookVector or nil
 _G.KZ_VeilState.stamp = _G.KZ_VeilState.stamp or 0
 _G.KZ_VeilState.target = nil
 
+-- ============================================================
+-- HELPERS
+-- ============================================================
 local function rtp(m)
     if not m then return nil end
     return m:FindFirstChild("HumanoidRootPart") or m:FindFirstChild("Torso") or m.PrimaryPart
@@ -83,6 +84,9 @@ local function isLocalKiller()
     return false
 end
 
+-- ============================================================
+-- REMOTE CACHE
+-- ============================================================
 local RC = { tof = nil, veil = nil, parry = nil, fastvault = nil }
 pcall(function() RC.tof = RS.Remotes.Items["Twist of Fate"].Fire end)
 pcall(function() RC.parry = RS.Remotes.Items["Parrying Dagger"].parry end)
@@ -107,10 +111,14 @@ task.delay(3, function()
                 if f:find("twist") or f:find("fate") then RC.tof = o end
             end
             if not RC.veil and nl == "spearthrow" then RC.veil = o end
+            if not RC.parry and nl:find("parry") then RC.parry = o end
         end
     end
 end)
 
+-- ============================================================
+-- AIM HELPERS
+-- ============================================================
 local function getMuzzle()
     local ch = LP.Character
     if not ch then return Cam and Cam.CFrame.Position or Vector3.zero end
@@ -161,6 +169,9 @@ local function pickTarget(wantKiller, fovRadius, maxDist)
     return best
 end
 
+-- ============================================================
+-- AIM LOOP
+-- ============================================================
 RSvc.Heartbeat:Connect(function()
     Cam = Workspace.CurrentCamera
     local now = os.clock()
@@ -227,6 +238,9 @@ RSvc.Heartbeat:Connect(function()
     end
 end)
 
+-- ============================================================
+-- FOV CIRCLE VISUAL
+-- ============================================================
 do
     local V = {}
     pcall(function()
@@ -235,15 +249,12 @@ do
         V.tof = Drawing.new("Circle"); V.tof.Thickness=1.8; V.tof.NumSides=90; V.tof.Filled=false; V.tof.Color=Color3.fromRGB(255,255,255); V.tof.Transparency=0.8; V.tof.Visible=false
         V.veilO = Drawing.new("Circle"); V.veilO.Thickness=3; V.veilO.NumSides=90; V.veilO.Filled=false; V.veilO.Color=Color3.new(0,0,0); V.veilO.Transparency=0.5; V.veilO.Visible=false
         V.veil = Drawing.new("Circle"); V.veil.Thickness=1.8; V.veil.NumSides=90; V.veil.Filled=false; V.veil.Color=Color3.fromRGB(255,255,255); V.veil.Transparency=0.8; V.veil.Visible=false
-        V.dot = Drawing.new("Circle"); V.dot.Thickness=1; V.dot.NumSides=16; V.dot.Filled=true; V.dot.Radius=4; V.dot.Visible=false
-        V.dotO = Drawing.new("Circle"); V.dotO.Thickness=3; V.dotO.NumSides=16; V.dotO.Filled=false; V.dotO.Color=Color3.new(0,0,0); V.dotO.Radius=6; V.dotO.Visible=false
     end)
     RSvc.RenderStepped:Connect(function()
         if not V.tof then return end
         local cam = Workspace.CurrentCamera
         if not cam then
             V.tof.Visible=false; V.tofO.Visible=false; V.veil.Visible=false; V.veilO.Visible=false
-            V.dot.Visible=false; V.dotO.Visible=false
             return
         end
         local center = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2)
@@ -262,30 +273,20 @@ do
             V.veilO.Position=center; V.veilO.Radius=r+2; V.veilO.Visible=true
             V.veil.Position=center; V.veil.Radius=r; V.veil.Color=col; V.veil.Visible=true
         else V.veil.Visible=false; V.veilO.Visible=false end
-
-        local tgt = _G.KZ_ToFTarget or _G.KZ_VeilState.target
-        if tgt and tgt.Parent then
-            local sp, on = cam:WorldToViewportPoint(tgt.Position)
-            if on and sp.Z > 0 then
-                V.dot.Position=Vector2.new(sp.X, sp.Y); V.dot.Color=Color3.fromRGB(255,255,255); V.dot.Visible=true
-                V.dotO.Position=Vector2.new(sp.X, sp.Y); V.dotO.Visible=true
-            else V.dot.Visible=false; V.dotO.Visible=false end
-        else V.dot.Visible=false; V.dotO.Visible=false end
     end)
 end
 
+-- ============================================================
+-- PARRY CIRCLE
+-- ============================================================
 do
     local base = Instance.new("Part")
     base.Name = "KZ_ParryCircle"
     base.Size = Vector3.new(1, 0.05, 1)
-    base.Anchored = true
-    base.CanCollide = false
-    base.CanQuery = false
-    base.CanTouch = false
-    base.CastShadow = false
+    base.Anchored = true; base.CanCollide = false; base.CanQuery = false
+    base.CanTouch = false; base.CastShadow = false
     base.Material = Enum.Material.SmoothPlastic
-    base.Transparency = 1
-    base.Parent = Workspace
+    base.Transparency = 1; base.Parent = Workspace
 
     local sg = Instance.new("SurfaceGui", base)
     sg.Face = Enum.NormalId.Top
@@ -315,10 +316,7 @@ do
     fill.BackgroundColor3 = Color3.fromRGB(255, 255, 255); fill.BackgroundTransparency = 1; fill.BorderSizePixel = 0
     Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
 
-    local fIn = 0
-    local prev = os.clock()
-    local pulse = 0
-
+    local fIn = 0; local prev = os.clock(); local pulse = 0
     RSvc.Heartbeat:Connect(function()
         local now = os.clock()
         local dt = now - prev; prev = now
@@ -334,11 +332,11 @@ do
                     local er = pl.Character:FindFirstChild("HumanoidRootPart")
                     if er then
                         local hu = pl.Character:FindFirstChildOfClass("Humanoid")
-                        if hu and hu.Health > 0 and (er.Position - hrp.Position).Magnitude <= (CFG.parry_radius or 14) then hasE = true; break end
+                        if hu and hu.Health > 0 and (er.Position - hrp.Position).Magnitude <= (CFG.parry_radius or 13) then hasE = true; break end
                     end
                 end
             end
-            local r = (CFG.parry_radius or 14) * 2
+            local r = (CFG.parry_radius or 13) * 2
             base.Size = Vector3.new(r, 0.05, r)
             base.CFrame = CFrame.new(hrp.Position - Vector3.new(0, 2.95, 0))
             local p = math.sin(pulse * (hasE and 7 or 4)) * (hasE and 0.14 or 0.06)
@@ -356,46 +354,57 @@ do
     end)
 end
 
+-- ============================================================
+-- UNIFIED NAMECALL HOOK (Kick + ToF + Veil) — 1 HOOK ONLY
+-- ============================================================
 do
-    if type(hookmetamethod) == "function" and type(newcclosure) == "function" and type(getnamecallmethod) == "function" then
+    if typeof(hookmetamethod) == "function"
+        and typeof(newcclosure) == "function"
+        and typeof(getnamecallmethod) == "function"
+    then
         local OLD
         OLD = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
             local m
             pcall(function() m = getnamecallmethod() end)
+
             if m == "Kick" then
                 if self == LP then return nil end
                 return OLD(self, ...)
             end
+
             if m ~= "FireServer" then return OLD(self, ...) end
-            local tofDir = _G.KZ_ToFAimDir
-            local veilDir = _G.KZ_VeilState.lookVector
-            local hasToF = CFG.tof_on and typeof(tofDir) == "Vector3"
-            local hasVeil = CFG.veil_on and typeof(veilDir) == "Vector3"
-            if not hasToF and not hasVeil then return OLD(self, ...) end
             if type(self) ~= "userdata" and type(self) ~= "table" then return OLD(self, ...) end
+
             local args = table.pack(...)
             local n = args.n
+
+            -- Veil (Spearthrow)
+            local veilDir = _G.KZ_VeilState and _G.KZ_VeilState.lookVector
+            local hasVeil = CFG and CFG.veil_on and typeof(veilDir) == "Vector3"
             if hasVeil then
-                local match = (RC.veil and self == RC.veil)
-                if not match then
-                    local sn = ""
-                    pcall(function() sn = tostring(self.Name or "") end)
-                    if sn == "Spearthrow" then match = true end
-                end
-                if match and typeof(args[1]) == "Vector3" and args[1].Magnitude <= 5 then
-                    args[1] = veilDir
+                local sn = ""
+                pcall(function() sn = tostring(self.Name or "") end)
+                if sn == "Spearthrow" then
+                    if typeof(args[1]) == "Vector3" then
+                        args[1] = veilDir
+                    end
                     return OLD(self, table.unpack(args, 1, n))
                 end
             end
+
+            -- ToF (Twist of Fate Fire)
+            local tofDir = _G.KZ_ToFAimDir
+            local hasToF = CFG and CFG.tof_on and typeof(tofDir) == "Vector3"
             if hasToF then
-                local match = (RC.tof and self == RC.tof)
+                local match = (RC and RC.tof and self == RC.tof)
                 if not match then
-                    local sn = ""
+                    local sn, fn = "", ""
                     pcall(function() sn = tostring(self.Name or "") end)
+                    pcall(function() fn = self:GetFullName():lower() end)
                     if sn == "Fire" or sn == "Shoot" then
-                        local fn = ""
-                        pcall(function() fn = self:GetFullName():lower() end)
-                        if fn:find("twist") or fn:find("fate") or fn:find("tof") then match = true end
+                        if fn:find("twist") or fn:find("fate") or fn:find("tof") then
+                            match = true
+                        end
                     end
                 end
                 if match then
@@ -409,11 +418,15 @@ do
                     return OLD(self, table.unpack(args, 1, n))
                 end
             end
+
             return OLD(self, table.unpack(args, 1, n))
         end))
     end
 end
 
+-- ============================================================
+-- AUTO GEN
+-- ============================================================
 pcall(function()
     local SUCCESS_MIN, SUCCESS_MAX = 102, 116
     local NEUTRAL_MIN, NEUTRAL_MAX = 116, 159
@@ -482,12 +495,10 @@ pcall(function()
         TriggerAction()
     end
     if KingScourgeStart then
-        KingScourgeStart.OnClientEvent:Connect(function(p1, p2, p3)
+        KingScourgeStart.OnClientEvent:Connect(function()
             if not CFG.gene_on then return end
             ScourgeActive = true; Busy = false
-            task.defer(function()
-                if CFG.gene_on and CFG.gene_method == "INSTANT" then InstantScourge() end
-            end)
+            task.defer(function() if CFG.gene_on and CFG.gene_method == "INSTANT" then InstantScourge() end end)
         end)
     end
     if KingScourgeEnd then
@@ -548,22 +559,95 @@ pcall(function()
     end)
 end)
 
+-- ============================================================
+-- AUTO PARRY v2
+-- ============================================================
 pcall(function()
     local VALID = {
-        ["122812055447896"]=1,["133963973694098"]=1,["117042998468241"]=1,["135002183282873"]=1,
-        ["121216847022485"]=1,["132817836308238"]=1,["129784271201071"]=1,["82666958311998"]=1,
-        ["78432063483146"]=1,["118907603246885"]=1,["139369275981139"]=1,["110355011987939"]=1,
-        ["111920872708571"]=1,["105374834496520"]=1,["138720291317243"]=1,["106871536134254"]=1,
-        ["130593238885843"]=1,["115244153053858"]=1,["74968262036854"]=1,["113255068724446"]=1,
-        ["98163597193511"]=1,["80411309607666"]=1,["101344487600812"]=1,
+        ["122812055447896"]="lunge",["133963973694098"]="basic",["117042998468241"]="lunge",
+        ["135002183282873"]="lunge",["121216847022485"]="basic",["132817836308238"]="basic",
+        ["129784271201071"]="lunge",["82666958311998"]="frenzy",["78432063483146"]="basic",
+        ["118907603246885"]="lunge",["139369275981139"]="basic",["110355011987939"]="lunge",
+        ["111920872708571"]="basic",["105374834496520"]="lunge",["138720291317243"]="basic",
+        ["106871536134254"]="basic",["130593238885843"]="basic",["115244153053858"]="lunge",
+        ["74968262036854"]="basic",["113255068724446"]="lunge",["98163597193511"]="special",
+        ["80411309607666"]="special",["101344487600812"]="special",
     }
-    local lastP, Att = 0, {}
-    local function doP()
+    local WIN = {
+        lunge   = {0.17, 0.60},
+        basic   = {0.20, 0.68},
+        frenzy  = {0.10, 0.72},
+        special = {0.14, 0.66},
+        default = {0.16, 0.65},
+    }
+
+    local function root(c) return c and (c:FindFirstChild("HumanoidRootPart") or c.PrimaryPart) end
+    local function flat(v) return Vector3.new(v.X, 0, v.Z) end
+
+    local function busy()
+        local ch = LP.Character
+        if not ch then return true end
+        local hum = ch:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then return true end
+        for _, a in ipairs({"Knocked","Downed","IsDowned","Hooked","IsHooked","Stunned","IsStunned","Carried","IsCarried","Repairing","IsRepairing","Healing","IsHealing"}) do
+            local v = ch:GetAttribute(a)
+            if v == true or v == 1 then return true end
+        end
+        local ok, st = pcall(function() return hum:GetState() end)
+        if ok and st then
+            if st == Enum.HumanoidStateType.Climbing
+                or st == Enum.HumanoidStateType.FallingDown
+                or st == Enum.HumanoidStateType.Ragdoll then
+                return true
+            end
+        end
+        local anim = hum:FindFirstChildOfClass("Animator")
+        if anim then
+            local ok2, tracks = pcall(function() return anim:GetPlayingAnimationTracks() end)
+            if ok2 and tracks then
+                for _, t in ipairs(tracks) do
+                    local n = ((t.Animation and t.Animation.Name) or ""):lower()
+                    if n:find("vault") or n:find("window") or n:find("pallet") or n:find("climb") or n:find("drop") then
+                        return true
+                    end
+                end
+            end
+        end
+        return false
+    end
+
+    local function realHit(track, kind, kr, mr)
+        if not track.IsPlaying then return false end
+        local len = track.Length
+        if not len or len < 0.08 then return false end
+        local a = (track.TimePosition or 0) / len
+        local w = WIN[kind] or WIN.default
+        if a < w[1] or a > w[2] then return false end
+        local spd = 1
+        pcall(function() spd = track.Speed or 1 end)
+        if spd < 0.42 then return false end
+        if (kr.Position - mr.Position).Magnitude > (CFG.parry_radius or 13) then return false end
+        local to = flat(mr.Position - kr.Position)
+        if to.Magnitude > 0.25 then
+            local look = flat(kr.CFrame.LookVector)
+            if look.Magnitude > 0.05 and look.Unit:Dot(to.Unit) < 0.08 then return false end
+            local vel = kr.AssemblyLinearVelocity
+            if typeof(vel) == "Vector3" and flat(vel):Dot(to.Unit) < -10 and to.Magnitude > 5.5 then return false end
+        end
+        return true
+    end
+
+    local last = 0
+    local function fire()
         if not CFG.parry_on then return end
+        if busy() then return end
         local now = os.clock()
-        if now - lastP < (CFG.parry_aggro and 0.04 or 0.11) then return end
-        lastP = now
-        if RC.parry then for _=1,8 do pcall(function() RC.parry:FireServer() end) end end
+        local cd = CFG.parry_aggro and 0.035 or 0.10
+        if now - last < cd then return end
+        last = now
+        if RC.parry then
+            pcall(function() RC.parry:FireServer() end)
+        end
         pcall(function()
             local mob = PG:FindFirstChild("Survivor-mob")
             if mob then
@@ -577,33 +661,83 @@ pcall(function()
             end
         end)
     end
-    _G.KZ_ManualParry = doP
-    local function bind(m)
-        if not m or Att[m] then return end
-        Att[m] = true
-        local hum = m:FindFirstChildOfClass("Humanoid")
-        local anim = hum and hum:FindFirstChildOfClass("Animator")
-        if not anim then return end
-        anim.AnimationPlayed:Connect(function(track)
-            if not CFG.parry_on or not track or not track.Animation then return end
-            local id = tostring(track.Animation.AnimationId or ""):match("%d+") or ""
-            if not VALID[id] then return end
-            local my, en = rtp(LP.Character), rtp(m)
-            if my and en and (my.Position - en.Position).Magnitude <= CFG.parry_radius + CFG.parry_sensitive * 0.01 then doP() end
+    _G.KZ_ManualParry = fire
+
+    local hooked = {}
+    local function hookChar(ch)
+        if not ch or hooked[ch] then return end
+        hooked[ch] = true
+        task.spawn(function()
+            local hum = ch:FindFirstChildOfClass("Humanoid")
+            for _ = 1, 20 do if hum then break end task.wait(0.15) hum = ch:FindFirstChildOfClass("Humanoid") end
+            if not hum then return end
+            local anim = hum:FindFirstChildOfClass("Animator")
+            for _ = 1, 20 do if anim then break end task.wait(0.15) anim = hum:FindFirstChildOfClass("Animator") end
+            if not anim then return end
+            anim.AnimationPlayed:Connect(function(track)
+                if not CFG.parry_on then return end
+                local id = tostring(track.Animation and track.Animation.AnimationId or ""):match("%d+") or ""
+                local kind = VALID[id]
+                if not kind then return end
+                local conn
+                conn = RSvc.Heartbeat:Connect(function()
+                    if not track.IsPlaying or not CFG.parry_on then
+                        if conn then conn:Disconnect() end
+                        return
+                    end
+                    local kr, mr = root(ch), root(LP.Character)
+                    if not kr or not mr then return end
+                    if CFG.parry_antifake then
+                        if realHit(track, kind, kr, mr) then
+                            fire()
+                            if not CFG.parry_aggro and conn then conn:Disconnect() end
+                        end
+                    else
+                        if (kr.Position - mr.Position).Magnitude <= (CFG.parry_radius or 13) then
+                            fire()
+                            if not CFG.parry_aggro and conn then conn:Disconnect() end
+                        end
+                    end
+                end)
+                track.Stopped:Connect(function()
+                    if conn then conn:Disconnect() end
+                end)
+            end)
         end)
     end
-    task.spawn(function()
-        while true do
-            task.wait(1.2)
-            for _, p in ipairs(Players:GetPlayers()) do if p.Character then bind(p.Character) end end
-            for _, o in ipairs(Workspace:GetChildren()) do
-                if o:IsA("Model") and o:FindFirstChildOfClass("Humanoid") then bind(o) end
+
+    local tracked = {}
+    local function scan()
+        for _, p in ipairs(Players:GetPlayers()) do
+            if isKiller(p) and p.Character then hookChar(p.Character) end
+            if isKiller(p) and not tracked[p] then
+                tracked[p] = true
+                p.CharacterAdded:Connect(function(c)
+                    hooked[c] = nil
+                    task.wait(0.3)
+                    hookChar(c)
+                end)
+                p.CharacterRemoving:Connect(function(c)
+                    hooked[c] = nil
+                end)
             end
         end
+    end
+
+    scan()
+    Players.PlayerAdded:Connect(function() task.wait(1) scan() end)
+    Players.PlayerRemoving:Connect(function(p) tracked[p] = nil end)
+    task.spawn(function() while task.wait(2) do scan() end end)
+
+    UIS.InputBegan:Connect(function(i, g)
+        if g then return end
+        if i.KeyCode == Enum.KeyCode.P then fire() end
     end)
-    UIS.InputBegan:Connect(function(i, g) if g then return end if i.KeyCode == Enum.KeyCode.P then doP() end end)
 end)
 
+-- ============================================================
+-- FAST VAULT
+-- ============================================================
 pcall(function()
     local last = 0
     local function trig()
@@ -627,26 +761,19 @@ pcall(function()
 end)
 
 -- ============================================================
--- ESP (CLEAN: no name/distance, only ITEM label)
+-- ESP CLEAN (no name/distance, item label only)
 -- ============================================================
 pcall(function()
-    local PlayersESP = Players
-    local RunServiceESP = RSvc
-    local LP_ESP = LP
-
     local highlights = {}
     local labels = {}
     local genHL, genLbl, trackedGens = {}, {}, {}
 
-    local function getCam()
-        return workspace.CurrentCamera
-    end
+    local function getCam() return workspace.CurrentCamera end
 
     local function updatePlayer(plr, cam)
-        if plr == LP_ESP then return end
+        if plr == LP then return end
         local char = plr.Character
         local head = char and char:FindFirstChild("Head")
-
         if not char or not head then
             if highlights[plr] then
                 highlights[plr].FillTransparency = 1
@@ -659,11 +786,9 @@ pcall(function()
             end
             return
         end
-
         local team = plr.Team
         local isK = team and team.Name == "Killer"
         local isS = team and (team.Name == "Survivors" or team.Name == "Survivor")
-
         if not isK and not isS then
             local role = char:GetAttribute("Role") or plr:GetAttribute("Role")
             if type(role) == "string" then
@@ -672,7 +797,6 @@ pcall(function()
                 isS = r:find("survivor") ~= nil
             end
         end
-
         if isK and not CFG.esp_k then
             if highlights[plr] then highlights[plr].Enabled = false end
             if labels[plr] and labels[plr].Parent then labels[plr].Parent.Adornee = nil end
@@ -689,20 +813,14 @@ pcall(function()
         end
 
         local color = Color3.fromRGB(255, 255, 255)
-
         if isK then
             color = Color3.fromRGB(255, 80, 80)
         else
             local hum = char:FindFirstChildOfClass("Humanoid")
-            if char:GetAttribute("IsHooked") then
-                color = Color3.fromRGB(255, 110, 80)
-            elseif char:GetAttribute("Knocked") then
-                color = Color3.fromRGB(255, 170, 80)
-            elseif hum and hum.Health < hum.MaxHealth then
-                color = Color3.fromRGB(255, 255, 120)
-            else
-                color = Color3.fromRGB(100, 255, 100)
-            end
+            if char:GetAttribute("IsHooked") then color = Color3.fromRGB(255, 110, 80)
+            elseif char:GetAttribute("Knocked") then color = Color3.fromRGB(255, 170, 80)
+            elseif hum and hum.Health < hum.MaxHealth then color = Color3.fromRGB(255, 255, 120)
+            else color = Color3.fromRGB(100, 255, 100) end
         end
 
         if not highlights[plr] or not highlights[plr].Parent then
@@ -720,7 +838,6 @@ pcall(function()
         hl.OutlineTransparency = 0
         hl.Enabled = true
 
-        -- Label hanya untuk ITEM (survivor saja)
         local itemTxt = ""
         if isS and CFG.esp_item then
             local item = plr:GetAttribute("EquippedItem")
@@ -770,15 +887,12 @@ pcall(function()
             end
             return
         end
-
         local progress = obj:GetAttribute("RepairProgress")
         if progress == nil then return end
         local repairing = obj:GetAttribute("PlayersRepairingCount") or 0
         local isFull = progress >= 100
-
         local cam = getCam()
         if not cam then return end
-
         if not genHL[obj] or not genHL[obj].Parent then
             local hl = Instance.new("Highlight")
             hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
@@ -789,7 +903,6 @@ pcall(function()
         if hl.Parent ~= cam then hl.Parent = cam end
         hl.Adornee = obj
         hl.Enabled = true
-
         if isFull then
             hl.FillColor = Color3.fromRGB(0, 255, 0)
             hl.OutlineColor = Color3.fromRGB(0, 255, 0)
@@ -800,12 +913,10 @@ pcall(function()
             hl.FillTransparency = CFG.esp_out and 1 or 0.55
         end
         hl.OutlineTransparency = 0
-
         local attach = obj:FindFirstChild("defaultMaterial")
             or obj.PrimaryPart
             or obj:FindFirstChildWhichIsA("BasePart")
         if not attach then return end
-
         if CFG.esp_gen_txt then
             if not genLbl[obj] or not genLbl[obj].Parent then
                 local bill = Instance.new("BillboardGui")
@@ -828,7 +939,6 @@ pcall(function()
                 if bill.Parent ~= cam then bill.Parent = cam end
                 bill.Adornee = attach
             end
-
             if isFull then
                 txt.Text = "Generator\n100%"
                 txt.TextColor3 = Color3.fromRGB(0, 255, 0)
@@ -859,10 +969,10 @@ pcall(function()
         end
     end
 
-    RunServiceESP.Heartbeat:Connect(function()
+    RSvc.Heartbeat:Connect(function()
         local cam = getCam()
         if not cam then return end
-        for _, plr in ipairs(PlayersESP:GetPlayers()) do
+        for _, plr in ipairs(Players:GetPlayers()) do
             pcall(updatePlayer, plr, cam)
         end
         for gen in pairs(trackedGens) do
@@ -876,11 +986,7 @@ pcall(function()
         end
     end)
 
-    task.spawn(function()
-        task.wait(1)
-        scanGens()
-    end)
-
+    task.spawn(function() task.wait(1); scanGens() end)
     local map = workspace:FindFirstChild("Map") or workspace
     map.DescendantAdded:Connect(function(child)
         task.defer(function()
@@ -890,12 +996,10 @@ pcall(function()
             end
         end)
     end)
-
-    PlayersESP.PlayerRemoving:Connect(function(plr)
+    Players.PlayerRemoving:Connect(function(plr)
         if highlights[plr] then highlights[plr]:Destroy() highlights[plr] = nil end
         if labels[plr] and labels[plr].Parent then labels[plr].Parent:Destroy() labels[plr] = nil end
     end)
-
     print("[KZ] ESP CLEAN loaded")
 end)
 
@@ -1021,7 +1125,6 @@ pcall(function()
         end
         if any then showStunToast() else if stunOn or stunGui then wipeToast() end end
     end)
-
     Players.PlayerRemoving:Connect(function(p) killStunHead(p) end)
 end)
 
@@ -1123,19 +1226,11 @@ end)
 -- UI HUB
 -- ============================================================
 local COL = {
-    bg = Color3.fromRGB(15,15,18),
-    panel = Color3.fromRGB(20,20,24),
-    side = Color3.fromRGB(17,17,21),
-    cardB = Color3.fromRGB(26,26,32),
-    tabOn = Color3.fromRGB(40,40,48),
-    brd = Color3.fromRGB(60,60,70),
-    tx = Color3.fromRGB(240,240,245),
-    txD = Color3.fromRGB(180,180,190),
-    txF = Color3.fromRGB(120,120,130),
-    off = Color3.fromRGB(40,40,48),
-    red = Color3.fromRGB(220,80,80),
+    bg = Color3.fromRGB(15,15,18), panel = Color3.fromRGB(20,20,24), side = Color3.fromRGB(17,17,21),
+    cardB = Color3.fromRGB(26,26,32), tabOn = Color3.fromRGB(40,40,48), brd = Color3.fromRGB(60,60,70),
+    tx = Color3.fromRGB(240,240,245), txD = Color3.fromRGB(180,180,190), txF = Color3.fromRGB(120,120,130),
+    off = Color3.fromRGB(40,40,48), red = Color3.fromRGB(220,80,80),
 }
-
 local function getParentTarget()
     if gethui then local ok, h = pcall(gethui); if ok and h then return h end end
     return CoreGui
@@ -1187,8 +1282,7 @@ local function mkBtn(x, col, txt)
     b.Text = txt or ""; b.TextColor3 = Color3.fromRGB(240,240,240)
     b.Font = Enum.Font.GothamBold; b.TextSize = 14
     b.BorderSizePixel = 0; b.AutoButtonColor = false; b.ZIndex = 12
-    cR(b, 6)
-    return b
+    cR(b, 6); return b
 end
 local MinBtn = mkBtn(-68, Color3.fromRGB(60,60,75), "–")
 local ClsBtn = mkBtn(-36, COL.red, "×")
@@ -1242,15 +1336,11 @@ function W:Show(n)
     for k, p in pairs(self.T) do p.P.Visible = (k == n) end
     for k, b in pairs(self.TB) do
         local a = (k == n)
-        TS:Create(b, TweenInfo.new(0.15), {
-            BackgroundColor3 = a and COL.tabOn or COL.side,
-            BackgroundTransparency = a and 0 or 1
-        }):Play()
+        TS:Create(b, TweenInfo.new(0.15), { BackgroundColor3 = a and COL.tabOn or COL.side, BackgroundTransparency = a and 0 or 1 }):Play()
         local l = b:FindFirstChild("Lbl")
         if l then TS:Create(l, TweenInfo.new(0.15), {TextColor3 = a and COL.tx or COL.txD}):Play() end
     end
-    self.Cur = n
-    CT.Text = n
+    self.Cur = n; CT.Text = n
 end
 
 function W:AddTab(cfg)
@@ -1280,8 +1370,7 @@ function W:AddTab(cfg)
         x.BackgroundTransparency = 1; x.Text = string.upper(s)
         x.TextColor3 = COL.txF; x.Font = Enum.Font.GothamBold; x.TextSize = 11
         x.TextXAlignment = Enum.TextXAlignment.Left; x.ZIndex = 14
-        self.Y = self.Y + 28
-        return self
+        self.Y = self.Y + 28; return self
     end
 
     function t:Banner(c)
@@ -1294,8 +1383,7 @@ function W:AddTab(cfg)
         img.Size = UDim2.new(1, -12, 1, -12); img.Position = UDim2.fromOffset(6, 6)
         img.BackgroundTransparency = 1; img.Image = c.Image or IMG
         img.ScaleType = Enum.ScaleType.Crop; img.ZIndex = 15; cR(img, 6)
-        self.Y = self.Y + 132
-        return self
+        self.Y = self.Y + 132; return self
     end
 
     function t:Btn(c)
@@ -1310,92 +1398,70 @@ function W:AddTab(cfg)
         l2.TextColor3 = COL.tx; l2.Font = Enum.Font.GothamMedium; l2.TextSize = 12
         l2.TextXAlignment = Enum.TextXAlignment.Left; l2.ZIndex = 15
         b2.MouseButton1Click:Connect(function() if c.Callback then pcall(c.Callback) end end)
-        self.Y = self.Y + 44
-        return self
+        self.Y = self.Y + 44; return self
     end
 
     function t:Tog(id, c)
         local row = Instance.new("Frame", p)
         row.Size = UDim2.new(1, -8, 0, 42); row.Position = UDim2.fromOffset(4, self.Y)
         row.BackgroundColor3 = COL.cardB; row.BackgroundTransparency = 0.7
-        row.BorderSizePixel = 0; row.ZIndex = 14
-        cR(row, 6)
-
+        row.BorderSizePixel = 0; row.ZIndex = 14; cR(row, 6)
         local l2 = Instance.new("TextLabel", row)
         l2.Size = UDim2.new(1, -80, 1, 0); l2.Position = UDim2.fromOffset(14, 0)
         l2.BackgroundTransparency = 1; l2.Text = c.Title or id
         l2.TextColor3 = COL.tx; l2.Font = Enum.Font.GothamMedium; l2.TextSize = 12
         l2.TextXAlignment = Enum.TextXAlignment.Left; l2.ZIndex = 15
-
         local st = c.Default or false
         local tr = Instance.new("Frame", row)
         tr.Size = UDim2.fromOffset(40, 22); tr.Position = UDim2.new(1, -54, 0.5, -11)
         tr.BackgroundColor3 = st and Color3.fromRGB(255,255,255) or COL.off
         tr.BackgroundTransparency = st and 0 or 0.1
-        tr.BorderSizePixel = 0; tr.ZIndex = 15
-        cR(tr, 3)
-
+        tr.BorderSizePixel = 0; tr.ZIndex = 15; cR(tr, 3)
         local k = Instance.new("Frame", tr)
         k.Size = UDim2.fromOffset(16, 16)
         k.Position = st and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
         k.BackgroundColor3 = Color3.fromRGB(255,255,255)
-        k.BorderSizePixel = 0; k.ZIndex = 16
-        cR(k, 2)
-
+        k.BorderSizePixel = 0; k.ZIndex = 16; cR(k, 2)
         local btn = Instance.new("TextButton", row)
         btn.Size = UDim2.new(1, 0, 1, 0); btn.BackgroundTransparency = 1; btn.Text = ""; btn.ZIndex = 17
         btn.MouseButton1Click:Connect(function()
             st = not st
-            TS:Create(k, TweenInfo.new(0.15), {
-                Position = st and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
-            }):Play()
-            TS:Create(tr, TweenInfo.new(0.15), {
-                BackgroundColor3 = st and Color3.fromRGB(255,255,255) or COL.off,
-                BackgroundTransparency = st and 0 or 0.1
-            }):Play()
+            TS:Create(k, TweenInfo.new(0.15), { Position = st and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 3, 0.5, -8) }):Play()
+            TS:Create(tr, TweenInfo.new(0.15), { BackgroundColor3 = st and Color3.fromRGB(255,255,255) or COL.off, BackgroundTransparency = st and 0 or 0.1 }):Play()
             if c.Callback then pcall(c.Callback, st) end
         end)
-        self.Y = self.Y + 48
-        return self
+        self.Y = self.Y + 48; return self
     end
 
     function t:Sl(id, c)
         local row = Instance.new("Frame", p)
         row.Size = UDim2.new(1, -8, 0, 56); row.Position = UDim2.fromOffset(4, self.Y)
         row.BackgroundColor3 = COL.cardB; row.BackgroundTransparency = 0.7
-        row.BorderSizePixel = 0; row.ZIndex = 14
-        cR(row, 6)
-
+        row.BorderSizePixel = 0; row.ZIndex = 14; cR(row, 6)
         local l2 = Instance.new("TextLabel", row)
         l2.Size = UDim2.new(1, -80, 0, 18); l2.Position = UDim2.fromOffset(14, 9)
         l2.BackgroundTransparency = 1; l2.Text = c.Title or id
         l2.TextColor3 = COL.tx; l2.Font = Enum.Font.GothamMedium; l2.TextSize = 12
         l2.TextXAlignment = Enum.TextXAlignment.Left; l2.ZIndex = 15
-
         local vL = Instance.new("TextLabel", row)
         vL.Size = UDim2.fromOffset(56, 18); vL.Position = UDim2.new(1, -70, 0, 9)
         vL.BackgroundTransparency = 1; vL.Text = tostring(c.Default or c.Min or 0)
         vL.TextColor3 = Color3.fromRGB(255,255,255); vL.Font = Enum.Font.GothamBold; vL.TextSize = 12
         vL.TextXAlignment = Enum.TextXAlignment.Right; vL.ZIndex = 15
-
         local tr = Instance.new("Frame", row)
         tr.Size = UDim2.new(1, -28, 0, 4); tr.Position = UDim2.new(0, 14, 1, -16)
         tr.BackgroundColor3 = Color3.fromRGB(70,70,80); tr.BackgroundTransparency = 0.3
         tr.BorderSizePixel = 0; tr.ZIndex = 15; cR(tr, 2)
-
         local mn, mx = c.Min or 0, c.Max or 100
         local pct = ((c.Default or mn) - mn) / (mx - mn)
-
         local f = Instance.new("Frame", tr)
         f.Size = UDim2.new(pct, 0, 1, 0)
         f.BackgroundColor3 = Color3.fromRGB(255,255,255); f.BackgroundTransparency = 0
         f.BorderSizePixel = 0; f.ZIndex = 16; cR(f, 2)
-
         local k = Instance.new("Frame", tr)
         k.Size = UDim2.fromOffset(14, 14); k.Position = UDim2.new(pct, -7, 0.5, -7)
         k.BackgroundColor3 = Color3.fromRGB(255,255,255)
         k.BorderSizePixel = 0; k.ZIndex = 17; cR(k, 7)
-
         local dg = false
         local function upd(x)
             local a = math.clamp((x - tr.AbsolutePosition.X) / tr.AbsoluteSize.X, 0, 1)
@@ -1418,23 +1484,19 @@ function W:AddTab(cfg)
         UIS.InputEnded:Connect(function(i)
             if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dg = false end
         end)
-        self.Y = self.Y + 62
-        return self
+        self.Y = self.Y + 62; return self
     end
 
     function t:Drop(id, c)
         local row = Instance.new("Frame", p)
         row.Size = UDim2.new(1, -8, 0, 42); row.Position = UDim2.fromOffset(4, self.Y)
         row.BackgroundColor3 = COL.cardB; row.BackgroundTransparency = 0.7
-        row.BorderSizePixel = 0; row.ZIndex = 14
-        cR(row, 6)
-
+        row.BorderSizePixel = 0; row.ZIndex = 14; cR(row, 6)
         local l2 = Instance.new("TextLabel", row)
         l2.Size = UDim2.new(1, -140, 1, 0); l2.Position = UDim2.fromOffset(14, 0)
         l2.BackgroundTransparency = 1; l2.Text = c.Title or id
         l2.TextColor3 = COL.tx; l2.Font = Enum.Font.GothamMedium; l2.TextSize = 12
         l2.TextXAlignment = Enum.TextXAlignment.Left; l2.ZIndex = 15
-
         local vs = c.Values or {}
         local cur = c.Default or vs[1] or "?"
         local vL = Instance.new("TextLabel", row)
@@ -1442,16 +1504,13 @@ function W:AddTab(cfg)
         vL.BackgroundTransparency = 1; vL.Text = cur
         vL.TextColor3 = Color3.fromRGB(255,255,255); vL.Font = Enum.Font.GothamBold; vL.TextSize = 11
         vL.TextXAlignment = Enum.TextXAlignment.Right; vL.ZIndex = 15
-
         local btn = Instance.new("TextButton", row)
         btn.Size = UDim2.new(1, 0, 1, 0); btn.BackgroundTransparency = 1; btn.Text = ""; btn.ZIndex = 16
-
         local hd = Instance.new("Frame", p)
         hd.Size = UDim2.new(1, -8, 0, 0); hd.Position = UDim2.fromOffset(4, self.Y + 46)
         hd.BackgroundColor3 = COL.cardB; hd.BackgroundTransparency = 0.2
         hd.BorderSizePixel = 0; hd.ClipsDescendants = true; hd.Visible = false; hd.ZIndex = 20
         cR(hd, 8)
-
         for i, v in ipairs(vs) do
             local opt = Instance.new("TextButton", hd)
             opt.Size = UDim2.new(1, -8, 0, 28); opt.Position = UDim2.fromOffset(4, (i - 1) * 30 + 4)
@@ -1470,7 +1529,6 @@ function W:AddTab(cfg)
                 if c.Callback then pcall(c.Callback, v) end
             end)
         end
-
         local hH = math.min(#vs * 30 + 8, 150)
         btn.MouseButton1Click:Connect(function()
             if hd.Visible then
@@ -1481,8 +1539,7 @@ function W:AddTab(cfg)
                 TS:Create(hd, TweenInfo.new(0.2), {Size = UDim2.new(1, -8, 0, hH)}):Play()
             end
         end)
-        self.Y = self.Y + 48
-        return self
+        self.Y = self.Y + 48; return self
     end
 
     self.T[n] = t
@@ -1525,9 +1582,9 @@ TSurv:Drop("gene_method", {Title = "Method", Values = {"SUCCESS", "NEUTRAL", "IN
 
 TSurv:Sec("Auto Parry")
 TSurv:Tog("parry_on", {Title = "Enable Parry", Default = CFG.parry_on, Callback = function(v) CFG.parry_on = v end})
+TSurv:Tog("parry_antifake", {Title = "Anti Fake Hit", Default = CFG.parry_antifake, Callback = function(v) CFG.parry_antifake = v end})
 TSurv:Tog("parry_show_circle", {Title = "Show Parry Circle", Default = CFG.parry_show_circle, Callback = function(v) CFG.parry_show_circle = v end})
 TSurv:Sl("parry_radius", {Title = "Radius", Min = 1, Max = 30, Default = CFG.parry_radius, Callback = function(v) CFG.parry_radius = v end})
-TSurv:Sl("parry_sensitive", {Title = "Sensitive", Min = 0, Max = 500, Default = CFG.parry_sensitive, Callback = function(v) CFG.parry_sensitive = v end})
 TSurv:Tog("parry_aggro", {Title = "Aggressive", Default = CFG.parry_aggro, Callback = function(v) CFG.parry_aggro = v end})
 
 TSurv:Sec("Movement")
@@ -1580,7 +1637,6 @@ pcall(function()
     FG.DisplayOrder = 2147483647
     pcall(function() FG.Parent = getParentTarget() end)
     if not FG.Parent then FG.Parent = PG end
-
     local FB = Instance.new("TextButton", FG)
     FB.Size = UDim2.fromOffset(70, 70)
     FB.Position = UDim2.new(0, 20, 0.5, -35)
@@ -1595,7 +1651,6 @@ pcall(function()
     FB.Active = true
     FB.Visible = false
     FB.ZIndex = 2147483647
-
     local bgCircle = Instance.new("Frame", FB)
     bgCircle.Size = UDim2.fromOffset(54, 54)
     bgCircle.Position = UDim2.new(0.5, -27, 0.5, -27)
@@ -1606,7 +1661,6 @@ pcall(function()
     cR(bgCircle, 27)
     local bgStroke = Instance.new("UIStroke", bgCircle)
     bgStroke.Color = Color3.fromRGB(255,255,255); bgStroke.Thickness = 2; bgStroke.Transparency = 0.5
-
     _G.KZ_FloatButton = FB
     local fD, fStart, fPos, fMoved = false, nil, nil, false
     FB.InputBegan:Connect(function(i)
@@ -1632,7 +1686,6 @@ pcall(function()
             task.delay(0.1, function() fMoved = false end)
         end
     end)
-
     _G.KZ_ShowFloat = function(state) FB.Visible = state end
 end)
 
@@ -1671,17 +1724,15 @@ UIS.InputBegan:Connect(function(i, g)
     if g then return end
     if i.KeyCode == Enum.KeyCode.V then CFG.tof_on = not CFG.tof_on end
     if i.KeyCode == Enum.KeyCode.B then CFG.veil_on = not CFG.veil_on end
-    if i.KeyCode == Enum.KeyCode.P then
-        if _G.KZ_ManualParry then _G.KZ_ManualParry() end
-    end
     if i.KeyCode == Enum.KeyCode.RightShift then
         if _G.KZ_ToggleUI then _G.KZ_ToggleUI() end
     end
 end)
 
 print("==========================================")
-print("[KALZZ HUB V5 + STUN + CLEAN ESP]")
-print("ESP: highlight only + item label di survi")
-print("No name / no distance di atas kepala")
-print("Stun Killer Notif: MISC tab")
+print("[KALZZ HUB V5 + AUTO PARRY v2]")
+print("Unified namecall: Kick + ToF + Veil")
+print("Auto Parry: antifake + busy + P hotkey")
+print("Stun Notif: MISC tab")
+print("ESP CLEAN: item label only")
 print("==========================================")
