@@ -1,4 +1,4 @@
---[[ KALZZ HUB V9 FINAL | Adaptive Scale | UI + Full Features ]]
+--[[ KALZZ HUB V9 FINAL | Scale 1.00 | UI + Full Features ]]
 
 -- ============================================================
 -- SERVICES
@@ -653,26 +653,10 @@ function Window.Make(opts)
     local gui = New("ScreenGui", { Name = "KZ_UI_" .. tostring(math.random(1, 999999)), ResetOnSpawn = false, IgnoreGuiInset = true, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 999999, Parent = GetParentGui() })
     win.Gui = gui
 
-    -- ADAPTIVE SCALE
+    -- SCALE 1.00
     local scaleObj = New("UIScale", { Parent = gui })
+    scaleObj.Scale = 1.00
     win.Scale = scaleObj
-    local function updateScale()
-        local cam = Workspace.CurrentCamera
-        if not cam then return end
-        local vp = cam.ViewportSize
-        local sx = vp.X / 900
-        local sy = vp.Y / 620
-        local s = math.min(sx, sy, 0.85)
-        s = math.max(s, 0.42)
-        scaleObj.Scale = s
-    end
-    updateScale()
-    task.spawn(function()
-        while gui.Parent do
-            updateScale()
-            task.wait(0.5)
-        end
-    end)
 
     local baseW, baseH = 660, 480
     local shadow = New("Frame", { Parent = gui, BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.65, BorderSizePixel = 0, Size = UDim2.fromOffset(baseW + 8, baseH + 8), Position = UDim2.new(0.5, -baseW/2 - 4, 0.5, -baseH/2 - 2) })
@@ -1242,4 +1226,4 @@ UIS.InputBegan:Connect(function(i, g)
 end)
 
 Notify("KALZZ HUB", "UI loaded. Anti ilang aktif.", 4, "success")
-print("[KALZZ HUB V9] loaded successfully")
+print("[KALZZ HUB V9] loaded successfully | Scale 1.00")
