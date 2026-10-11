@@ -1,4 +1,4 @@
---[[ KALZZ HUB V5 FINAL | UNIFIED NAMECALL | STUN | CLEAN ESP | AUTO PARRY (FIXED) ]]
+--[[ KALZZ HUB V6 FINAL | UNIFIED NAMECALL | STUN | CLEAN ESP | AUTO PARRY UPGRADED ]]
 
 -- ============================================================
 -- SERVICES
@@ -25,7 +25,7 @@ local INVITE = "discord.gg/dCYTep9cY"
 local CFG = _G.KALZZ_CFG or {
     tof_on = true, tof_fov = 500, tof_predict = 2.8, tof_maxdist = 2000, tof_show_fov = true,
     veil_on = true, veil_fov = 320, veil_predict = 2.8, veil_maxdist = 2000, veil_show_fov = true,
-    parry_on = true, parry_radius = 13, parry_sensitive = 200, parry_aggro = true, parry_show_circle = true, parry_antifake = true,
+    parry_on = true, parry_radius = 15, parry_sensitive = 200, parry_aggro = true, parry_show_circle = true, parry_antifake = true,
     fast_vault = true,
     esp_k = true, esp_s = true, esp_g = true,
     esp_gen_txt = true, esp_item = true,
@@ -332,11 +332,11 @@ do
                     local er = pl.Character:FindFirstChild("HumanoidRootPart")
                     if er then
                         local hu = pl.Character:FindFirstChildOfClass("Humanoid")
-                        if hu and hu.Health > 0 and (er.Position - hrp.Position).Magnitude <= (CFG.parry_radius or 13) then hasE = true; break end
+                        if hu and hu.Health > 0 and (er.Position - hrp.Position).Magnitude <= (CFG.parry_radius or 15) then hasE = true; break end
                     end
                 end
             end
-            local r = (CFG.parry_radius or 13) * 2
+            local r = (CFG.parry_radius or 15) * 2
             base.Size = Vector3.new(r, 0.05, r)
             base.CFrame = CFrame.new(hrp.Position - Vector3.new(0, 2.95, 0))
             local p = math.sin(pulse * (hasE and 7 or 4)) * (hasE and 0.14 or 0.06)
@@ -558,7 +558,7 @@ pcall(function()
 end)
 
 -- ============================================================
--- AUTO PARRY (FIXED — pakai remote + FireServer(2))
+-- AUTO PARRY (UPGRADED)
 -- ============================================================
 pcall(function()
     local VALID = {
@@ -572,12 +572,19 @@ pcall(function()
         ["80411309607666"]="special",["101344487600812"]="special",
     }
     local WIN = {
-        lunge   = {0.17, 0.60},
-        basic   = {0.20, 0.68},
-        frenzy  = {0.10, 0.72},
-        special = {0.14, 0.66},
-        default = {0.16, 0.65},
+        lunge   = {0.18, 0.58},
+        basic   = {0.22, 0.60},
+        frenzy  = {0.12, 0.62},
+        default = {0.20, 0.58},
     }
+
+    local function kindOf(name)
+        name = (name or ""):lower()
+        if name:find("lunge") then return "lunge" end
+        if name:find("frenzy") then return "frenzy" end
+        if name:find("basic") then return "basic" end
+        return "default"
+    end
 
     local function root(c) return c and (c:FindFirstChild("HumanoidRootPart") or c.PrimaryPart) end
     local function flat(v) return Vector3.new(v.X, 0, v.Z) end
@@ -587,25 +594,20 @@ pcall(function()
         if not ch then return true end
         local hum = ch:FindFirstChildOfClass("Humanoid")
         if not hum or hum.Health <= 0 then return true end
-        for _, a in ipairs({"Knocked","Downed","IsDowned","Hooked","IsHooked","Stunned","IsStunned","Carried","IsCarried","Repairing","IsRepairing","Healing","IsHealing"}) do
-            local v = ch:GetAttribute(a)
-            if v == true or v == 1 then return true end
+        for _, a in ipairs({"Knocked","Downed","Hooked","Stunned","Carried","Repairing","Healing","IsRepairing","IsHealing"}) do
+            if ch:GetAttribute(a) == true or ch:GetAttribute(a) == 1 then return true end
         end
         local ok, st = pcall(function() return hum:GetState() end)
-        if ok and st then
-            if st == Enum.HumanoidStateType.Climbing
-                or st == Enum.HumanoidStateType.FallingDown
-                or st == Enum.HumanoidStateType.Ragdoll then
-                return true
-            end
+        if ok and (st == Enum.HumanoidStateType.Climbing or st == Enum.HumanoidStateType.Ragdoll or st == Enum.HumanoidStateType.FallingDown) then
+            return true
         end
-        local anim = hum:FindFirstChildOfClass("Animator")
-        if anim then
-            local ok2, tracks = pcall(function() return anim:GetPlayingAnimationTracks() end)
-            if ok2 and tracks then
-                for _, t in ipairs(tracks) do
+        local an = hum:FindFirstChildOfClass("Animator")
+        if an then
+            local ok2, tr = pcall(function() return an:GetPlayingAnimationTracks() end)
+            if ok2 and tr then
+                for _, t in ipairs(tr) do
                     local n = ((t.Animation and t.Animation.Name) or ""):lower()
-                    if n:find("vault") or n:find("window") or n:find("pallet") or n:find("climb") or n:find("drop") then
+                    if n:find("vault") or n:find("window") or n:find("pallet") or n:find("climb") then
                         return true
                     end
                 end
@@ -614,126 +616,160 @@ pcall(function()
         return false
     end
 
-    local function realHit(track, kind, kr, mr)
-        if not track.IsPlaying then return false end
-        local len = track.Length
+    local function findParryRemote()
+        if RC and RC.parry then return RC.parry end
+        local r
+        pcall(function() r = RS.Remotes.Items["Parrying Dagger"].parry end)
+        if r then return r end
+        local RR = RS:FindFirstChild("Remotes")
+        if RR then
+            local it = RR:FindFirstChild("Items")
+            if it then
+                local pd = it:FindFirstChild("Parrying Dagger")
+                if pd then return pd:FindFirstChild("parry") end
+            end
+        end
+        return nil
+    end
+
+    local lpT = 0
+    local Attached = {}
+
+    local function doP()
+        if not CFG.parry_on then return end
+        if busy() then return end
+        local n = os.clock()
+        local cd = CFG.parry_aggro and 0.03 or 0.09
+        if n - lpT < cd then return end
+        lpT = n
+
+        local PR = findParryRemote()
+        if PR then
+            pcall(function() PR:FireServer() end)
+            pcall(function() PR:FireServer(2) end)
+        end
+
+        pcall(function()
+            local sv = PG:FindFirstChild("Survivor-mob")
+            if not sv then return end
+            local c = sv:FindFirstChild("Controls")
+            if not c then return end
+            local b = c:FindFirstChild("Gui-mob") or c:FindFirstChildWhichIsA("ImageButton")
+            if b and typeof(firesignal) == "function" then
+                firesignal(b.MouseButton1Down)
+                task.wait(0.008)
+                firesignal(b.MouseButton1Up)
+            end
+        end)
+    end
+    _G.KZ_ManualParry = doP
+
+    local function gD(m)
+        local a, b = root(LP.Character), root(m)
+        if not a or not b then return 9999 end
+        return (a.Position - b.Position).Magnitude
+    end
+
+    local function realHit(t, label, m)
+        if not t.IsPlaying then return false end
+        local len = t.Length
         if not len or len < 0.08 then return false end
-        local a = (track.TimePosition or 0) / len
-        local w = WIN[kind] or WIN.default
-        if a < w[1] or a > w[2] then return false end
+        local alpha = ((t.TimePosition or 0) + 0.016) / len
+        local w = WIN[kindOf(label)] or WIN.default
+        if alpha < w[1] or alpha > w[2] then return false end
         local spd = 1
-        pcall(function() spd = track.Speed or 1 end)
-        if spd < 0.42 then return false end
-        if (kr.Position - mr.Position).Magnitude > (CFG.parry_radius or 13) then return false end
+        pcall(function() spd = t.Speed or 1 end)
+        if spd < 0.4 then return false end
+        local kr, mr = root(m), root(LP.Character)
+        if not kr or not mr then return false end
+        if gD(m) > CFG.parry_radius + 1.8 then return false end
         local to = flat(mr.Position - kr.Position)
-        if to.Magnitude > 0.25 then
+        if to.Magnitude > 0.2 then
             local look = flat(kr.CFrame.LookVector)
-            if look.Magnitude > 0.05 and look.Unit:Dot(to.Unit) < 0.08 then return false end
-            local vel = kr.AssemblyLinearVelocity
-            if typeof(vel) == "Vector3" and flat(vel):Dot(to.Unit) < -10 and to.Magnitude > 5.5 then return false end
+            if look.Magnitude > 0.05 and look.Unit:Dot(to.Unit) < 0.06 then
+                return false
+            end
         end
         return true
     end
 
-    local last = 0
-    local function fire()
-        if not CFG.parry_on then return end
-        if busy() then return end
-        local now = os.clock()
-        local cd = CFG.parry_aggro and 0.035 or 0.10
-        if now - last < cd then return end
-        last = now
+    local function bindParry(m)
+        if not m or Attached[m] then return end
+        if not m:FindFirstChildOfClass("Humanoid") then return end
 
-        -- Remote lookup: RC.parry -> fallback langsung -> scan
-        local r = RC.parry
-        if not r then
-            pcall(function() r = RS.Remotes.Items["Parrying Dagger"].parry end)
-        end
-        if not r then
-            for _, o in ipairs(RS:GetDescendants()) do
-                if o:IsA("RemoteEvent") and o.Name:lower():find("parry") then
-                    r = o
-                    break
-                end
+        local plr = Players:GetPlayerFromCharacter(m)
+        if plr then
+            if plr == LP then return end
+            local isK = false
+            if plr.Team and plr.Team.Name == "Killer" then isK = true end
+            if not isK then
+                local r = m:GetAttribute("Role") or plr:GetAttribute("Role")
+                if type(r) == "string" and r:lower():find("killer") then isK = true end
             end
+            if not isK and plr.Team and plr.Team.Name and plr.Team.Name:lower():find("killer") then isK = true end
+            if not isK then return end
+        else
+            local r = m:GetAttribute("Role")
+            if not (type(r) == "string" and r:lower():find("killer")) then return end
         end
 
-        if r then
-            pcall(function() r:FireServer() end)
-            pcall(function() r:FireServer(2) end)
-        end
-    end
-    _G.KZ_ManualParry = fire
+        Attached[m] = true
 
-    local hooked = {}
-    local function hookChar(ch)
-        if not ch or hooked[ch] then return end
-        hooked[ch] = true
-        task.spawn(function()
-            local hum = ch:FindFirstChildOfClass("Humanoid")
-            for _ = 1, 20 do if hum then break end task.wait(0.15) hum = ch:FindFirstChildOfClass("Humanoid") end
-            if not hum then return end
-            local anim = hum:FindFirstChildOfClass("Animator")
-            for _ = 1, 20 do if anim then break end task.wait(0.15) anim = hum:FindFirstChildOfClass("Animator") end
-            if not anim then return end
-            anim.AnimationPlayed:Connect(function(track)
-                if not CFG.parry_on then return end
-                local id = tostring(track.Animation and track.Animation.AnimationId or ""):match("%d+") or ""
-                local kind = VALID[id]
-                if not kind then return end
-                local conn
-                conn = RSvc.Heartbeat:Connect(function()
-                    if not track.IsPlaying or not CFG.parry_on then
-                        if conn then conn:Disconnect() end
-                        return
-                    end
-                    local kr, mr = root(ch), root(LP.Character)
-                    if not kr or not mr then return end
-                    if CFG.parry_antifake then
-                        if realHit(track, kind, kr, mr) then
-                            fire()
-                            if not CFG.parry_aggro and conn then conn:Disconnect() end
-                        end
-                    else
-                        if (kr.Position - mr.Position).Magnitude <= (CFG.parry_radius or 13) then
-                            fire()
-                            if not CFG.parry_aggro and conn then conn:Disconnect() end
-                        end
-                    end
-                end)
-                track.Stopped:Connect(function()
+        local h = m:FindFirstChildOfClass("Humanoid")
+        local an = h:FindFirstChildOfClass("Animator")
+        if not an then task.wait(0.3) an = h:FindFirstChildOfClass("Animator") end
+        if not an then return end
+
+        an.AnimationPlayed:Connect(function(t)
+            if not CFG.parry_on or not t or not t.Animation then return end
+            local id = tostring(t.Animation.AnimationId or ""):match("(%d+)") or ""
+            local label = VALID[id]
+            if not label then return end
+
+            local conn
+            conn = RSvc.Heartbeat:Connect(function()
+                if not t.IsPlaying or not CFG.parry_on then
                     if conn then conn:Disconnect() end
-                end)
+                    return
+                end
+                local d = gD(m)
+                if d <= 0 or d > CFG.parry_radius + 1.8 then return end
+
+                if CFG.parry_antifake then
+                    if realHit(t, label, m) then
+                        doP()
+                        if not CFG.parry_aggro and conn then conn:Disconnect() end
+                    end
+                else
+                    doP()
+                    if not CFG.parry_aggro and conn then conn:Disconnect() end
+                end
+            end)
+            t.Stopped:Connect(function()
+                if conn then conn:Disconnect() end
             end)
         end)
     end
 
-    local tracked = {}
-    local function scan()
-        for _, p in ipairs(Players:GetPlayers()) do
-            if isKiller(p) and p.Character then hookChar(p.Character) end
-            if isKiller(p) and not tracked[p] then
-                tracked[p] = true
-                p.CharacterAdded:Connect(function(c)
-                    hooked[c] = nil
-                    task.wait(0.3)
-                    hookChar(c)
-                end)
-                p.CharacterRemoving:Connect(function(c)
-                    hooked[c] = nil
-                end)
-            end
+    for _, o in ipairs(Workspace:GetDescendants()) do
+        if o:IsA("Model") and o:FindFirstChildOfClass("Humanoid") then
+            pcall(bindParry, o)
         end
     end
 
-    scan()
-    Players.PlayerAdded:Connect(function() task.wait(1) scan() end)
-    Players.PlayerRemoving:Connect(function(p) tracked[p] = nil end)
-    task.spawn(function() while task.wait(2) do scan() end end)
+    task.spawn(function()
+        while task.wait(0.8) do
+            for _, o in ipairs(Workspace:GetDescendants()) do
+                if o:IsA("Model") and o:FindFirstChildOfClass("Humanoid") then
+                    pcall(bindParry, o)
+                end
+            end
+        end
+    end)
 
     UIS.InputBegan:Connect(function(i, g)
         if g then return end
-        if i.KeyCode == Enum.KeyCode.P then fire() end
+        if i.KeyCode == Enum.KeyCode.P then doP() end
     end)
 end)
 
@@ -1002,7 +1038,6 @@ pcall(function()
         if highlights[plr] then highlights[plr]:Destroy() highlights[plr] = nil end
         if labels[plr] and labels[plr].Parent then labels[plr].Parent:Destroy() labels[plr] = nil end
     end)
-    print("[KZ] ESP CLEAN loaded")
 end)
 
 -- ============================================================
@@ -1732,8 +1767,9 @@ UIS.InputBegan:Connect(function(i, g)
 end)
 
 print("==========================================")
-print("[KALZZ HUB V5 + AUTO PARRY FIXED]")
-print("Auto Parry: FireServer() + FireServer(2)")
-print("Fallback remote: RC.parry -> direct -> scan")
-print("Button firesignal dihapus (blocking)")
+print("[KALZZ HUB V6 FINAL]")
+print("Auto Parry UPGRADED: perfect + antifake + P hotkey")
+print("Unified namecall: Kick + ToF + Veil (1 hook)")
+print("Stun Notif: MISC tab")
+print("ESP CLEAN: item label only")
 print("==========================================")
