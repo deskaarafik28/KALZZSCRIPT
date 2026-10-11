@@ -1,4 +1,4 @@
---[[ KALZZ HUB V9 FINAL | UI + Full Features ]]
+--[[ KALZZ HUB V9 FINAL | Adaptive Scale | UI + Full Features ]]
 
 -- ============================================================
 -- SERVICES
@@ -165,7 +165,7 @@ local function Notify(title, content, duration, kind)
 end
 
 -- ============================================================
--- HELPERS (GAME)
+-- GAME HELPERS
 -- ============================================================
 local function rtp(m)
     if not m then return nil end
@@ -197,7 +197,6 @@ local function isLocalKiller()
     return false
 end
 
--- REMOTE CACHE
 local RC = { tof = nil, veil = nil, parry = nil, fastvault = nil }
 pcall(function() RC.tof = RS.Remotes.Items["Twist of Fate"].Fire end)
 pcall(function() RC.parry = RS.Remotes.Items["Parrying Dagger"].parry end)
@@ -210,7 +209,6 @@ pcall(function()
     if w then RC.fastvault = w:FindFirstChild("SurvivorFastVault") or w:FindFirstChild("fastvault") end
 end)
 
--- AIM LOOP
 _G.KZ_ToFAimDir = nil
 _G.KZ_ToFStamp = 0
 _G.KZ_ToFTarget = nil
@@ -584,7 +582,7 @@ pcall(function()
     Players.PlayerRemoving:Connect(function(p) killH(p) end)
 end)
 
--- VISION
+-- VISION LOOPS
 task.spawn(function()
     while true do
         task.wait(1)
@@ -597,6 +595,18 @@ task.spawn(function()
             end)
         end
         if CFG.boost_fps then pcall(function() if setfpscap then setfpscap(240) end end) end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        if CFG.fov_lock then
+            local c = Workspace.CurrentCamera
+            if c and math.abs(c.FieldOfView - (CFG.fov_value or 120)) > 0.5 then
+                pcall(function() c.FieldOfView = CFG.fov_value or 120 end)
+            end
+        end
     end
 end)
 
@@ -642,6 +652,27 @@ function Window.Make(opts)
 
     local gui = New("ScreenGui", { Name = "KZ_UI_" .. tostring(math.random(1, 999999)), ResetOnSpawn = false, IgnoreGuiInset = true, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 999999, Parent = GetParentGui() })
     win.Gui = gui
+
+    -- ADAPTIVE SCALE
+    local scaleObj = New("UIScale", { Parent = gui })
+    win.Scale = scaleObj
+    local function updateScale()
+        local cam = Workspace.CurrentCamera
+        if not cam then return end
+        local vp = cam.ViewportSize
+        local sx = vp.X / 900
+        local sy = vp.Y / 620
+        local s = math.min(sx, sy, 0.85)
+        s = math.max(s, 0.42)
+        scaleObj.Scale = s
+    end
+    updateScale()
+    task.spawn(function()
+        while gui.Parent do
+            updateScale()
+            task.wait(0.5)
+        end
+    end)
 
     local baseW, baseH = 660, 480
     local shadow = New("Frame", { Parent = gui, BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.65, BorderSizePixel = 0, Size = UDim2.fromOffset(baseW + 8, baseH + 8), Position = UDim2.new(0.5, -baseW/2 - 4, 0.5, -baseH/2 - 2) })
@@ -742,7 +773,6 @@ function Window.Make(opts)
         end
     end)
 
-    -- FLOAT KZ
     local floatGui = New("ScreenGui", { Name = "KZ_Float", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 2147483647, Parent = GetParentGui() })
     local floatBtn = New("TextButton", { Parent = floatGui, BackgroundColor3 = T.Accent, BackgroundTransparency = 0.55, BorderSizePixel = 0, Size = UDim2.fromOffset(58, 58), Position = UDim2.new(0, 20, 0.5, -29), Text = "KZ", TextColor3 = Color3.fromRGB(255,255,255), Font = F.Bold, TextSize = 20, AutoButtonColor = false, Visible = false })
     Corner(floatBtn, 29)
@@ -1208,19 +1238,6 @@ UIS.InputBegan:Connect(function(i, g)
     if i.KeyCode == Enum.KeyCode.B then CFG.veil_on = not CFG.veil_on end
     if i.KeyCode == Enum.KeyCode.P then
         if _G.KZ_ManualParry then _G.KZ_ManualParry() end
-    end
-end)
-
--- FOV LOCK LOOP
-task.spawn(function()
-    while true do
-        task.wait(0.5)
-        if CFG.fov_lock then
-            local c = Workspace.CurrentCamera
-            if c and math.abs(c.FieldOfView - (CFG.fov_value or 120)) > 0.5 then
-                pcall(function() c.FieldOfView = CFG.fov_value or 120 end)
-            end
-        end
     end
 end)
 
