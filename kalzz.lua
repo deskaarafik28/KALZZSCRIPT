@@ -1,4 +1,4 @@
---[[ KALZZ HUB V5 FINAL | UNIFIED NAMECALL | STUN | CLEAN ESP | AUTO PARRY v2 ]]
+--[[ KALZZ HUB V5 FINAL | UNIFIED NAMECALL | STUN | CLEAN ESP | AUTO PARRY (FIXED) ]]
 
 -- ============================================================
 -- SERVICES
@@ -355,7 +355,7 @@ do
 end
 
 -- ============================================================
--- UNIFIED NAMECALL HOOK (Kick + ToF + Veil) — 1 HOOK ONLY
+-- UNIFIED NAMECALL HOOK
 -- ============================================================
 do
     if typeof(hookmetamethod) == "function"
@@ -378,7 +378,6 @@ do
             local args = table.pack(...)
             local n = args.n
 
-            -- Veil (Spearthrow)
             local veilDir = _G.KZ_VeilState and _G.KZ_VeilState.lookVector
             local hasVeil = CFG and CFG.veil_on and typeof(veilDir) == "Vector3"
             if hasVeil then
@@ -392,7 +391,6 @@ do
                 end
             end
 
-            -- ToF (Twist of Fate Fire)
             local tofDir = _G.KZ_ToFAimDir
             local hasToF = CFG and CFG.tof_on and typeof(tofDir) == "Vector3"
             if hasToF then
@@ -560,7 +558,7 @@ pcall(function()
 end)
 
 -- ============================================================
--- AUTO PARRY v2
+-- AUTO PARRY (FIXED — pakai remote + FireServer(2))
 -- ============================================================
 pcall(function()
     local VALID = {
@@ -645,21 +643,25 @@ pcall(function()
         local cd = CFG.parry_aggro and 0.035 or 0.10
         if now - last < cd then return end
         last = now
-        if RC.parry then
-            pcall(function() RC.parry:FireServer() end)
+
+        -- Remote lookup: RC.parry -> fallback langsung -> scan
+        local r = RC.parry
+        if not r then
+            pcall(function() r = RS.Remotes.Items["Parrying Dagger"].parry end)
         end
-        pcall(function()
-            local mob = PG:FindFirstChild("Survivor-mob")
-            if mob then
-                local ctrl = mob:FindFirstChild("Controls")
-                if ctrl then
-                    local btn = ctrl:FindFirstChild("action") or ctrl:FindFirstChildWhichIsA("ImageButton")
-                    if btn and typeof(firesignal) == "function" then
-                        firesignal(btn.MouseButton1Down); task.wait(0.005); firesignal(btn.MouseButton1Up)
-                    end
+        if not r then
+            for _, o in ipairs(RS:GetDescendants()) do
+                if o:IsA("RemoteEvent") and o.Name:lower():find("parry") then
+                    r = o
+                    break
                 end
             end
-        end)
+        end
+
+        if r then
+            pcall(function() r:FireServer() end)
+            pcall(function() r:FireServer(2) end)
+        end
     end
     _G.KZ_ManualParry = fire
 
@@ -761,7 +763,7 @@ pcall(function()
 end)
 
 -- ============================================================
--- ESP CLEAN (no name/distance, item label only)
+-- ESP CLEAN
 -- ============================================================
 pcall(function()
     local highlights = {}
@@ -1730,9 +1732,8 @@ UIS.InputBegan:Connect(function(i, g)
 end)
 
 print("==========================================")
-print("[KALZZ HUB V5 + AUTO PARRY v2]")
-print("Unified namecall: Kick + ToF + Veil")
-print("Auto Parry: antifake + busy + P hotkey")
-print("Stun Notif: MISC tab")
-print("ESP CLEAN: item label only")
+print("[KALZZ HUB V5 + AUTO PARRY FIXED]")
+print("Auto Parry: FireServer() + FireServer(2)")
+print("Fallback remote: RC.parry -> direct -> scan")
+print("Button firesignal dihapus (blocking)")
 print("==========================================")
