@@ -13,6 +13,7 @@ local MODULES = {
     "vision",
     "esp",
     "utility",
+    "ui",
 }
 
 -- SERVICES
