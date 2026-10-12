@@ -3,7 +3,7 @@
     main.lua - core + loader
 ]]
 
-local BASE_URL = "https://raw.githubusercontent.com/deskaaraik28/KALZZSCRIPT/main/modules/"
+local BASE_URL = "https://raw.githubusercontent.com/deskaarafik28/KALZZSCRIPT/refs/heads/main/modules/"
 local AUTOLOAD = true
 
 local S = {
