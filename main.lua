@@ -10,7 +10,7 @@ local MODULES = {
     "auto-gen",
     "fast-vault",
     "stun-notif",
-    "proximity-alert",
+    "alert",
     "vision",
     "esp",
     "utility",
