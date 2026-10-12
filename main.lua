@@ -7,6 +7,7 @@ local MODULES = {
     "silent-aim-veil",
     "silent-aim-tof",
     "auto-parry",
+    "auto-gen",
     "fast-vault",
     "stun-notif",
     "proximity-alert",
@@ -16,7 +17,6 @@ local MODULES = {
     "ui",
 }
 
--- SERVICES
 local S = {
     Players   = game:GetService("Players"),
     RS        = game:GetService("ReplicatedStorage"),
@@ -34,7 +34,6 @@ S.INVITE = "discord.gg/dCYTep9cY"
 S.IMG = "rbxassetid://134442738689157"
 S.BASE_URL = BASE_URL
 
--- CONFIG
 S.CFG = _G.KALZZ_CFG or {
     tof_on=true, tof_fov=500, tof_predict=2.8, tof_maxdist=2000, tof_show_fov=true,
     veil_on=true, veil_fov=320, veil_predict=2.8, veil_maxdist=2000, veil_show_fov=true,
@@ -43,16 +42,15 @@ S.CFG = _G.KALZZ_CFG or {
     esp_k=true, esp_s=true, esp_g=true, esp_gen_txt=true, esp_item=true, esp_out=false,
     fov_lock=false, fov_value=120,
     ambient=true, boost_fps=true, alert=true, stun_on=true,
+    gene_on=false, gene_method="SUCCESS",
 }
 _G.KALZZ_CFG = S.CFG
 
--- AIM STATE
 _G.KZ_ToFAimDir = nil
 _G.KZ_ToFStamp = 0
 _G.KZ_ToFTarget = nil
 _G.KZ_VeilState = _G.KZ_VeilState or { lookVector=nil, stamp=0, target=nil }
 
--- REMOTE CACHE
 S.RC = { tof=nil, veil=nil, parry=nil, fastvault=nil }
 pcall(function() S.RC.tof = S.RS.Remotes.Items["Twist of Fate"].Fire end)
 pcall(function() S.RC.parry = S.RS.Remotes.Items["Parrying Dagger"].parry end)
@@ -78,7 +76,6 @@ task.delay(3, function()
     end
 end)
 
--- HELPERS
 S.rtp = function(m)
     if not m then return nil end
     return m:FindFirstChild("HumanoidRootPart") or m:FindFirstChild("Torso") or m.PrimaryPart
@@ -112,7 +109,6 @@ S.isLocalKiller = function()
     return false
 end
 
--- HOOK REGISTRY
 S.Hooks = { list = {}, installed = false }
 function S.Hooks:Add(name, prio, fn)
     table.insert(self.list, { name=name, prio=prio or 50, fn=fn })
@@ -143,7 +139,6 @@ function S.Hooks:Install()
 end
 S.Hooks:Install()
 
--- LOADER
 _G.KZ = S
 
 local function loadModule(name)
