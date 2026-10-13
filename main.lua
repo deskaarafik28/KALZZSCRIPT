@@ -8,6 +8,7 @@ local MODULES = {
     "silent-aim-tof",
     "silent-aim-veil",
     "auto-parry",
+    "auto-crouch",
     "auto-gen",
     "fast-vault",
     "stun-notif",
@@ -34,7 +35,8 @@ S.INVITE = "discord.gg/dCYTep9cY"
 S.IMG = "rbxassetid://134442738689157"
 S.BASE_URL = BASE_URL
 
-S.CFG = _G.KALZZ_CFG or {}
+S.CFG = {}
+S.SaveCfg = function() end -- placeholder, di-override config.lua
 
 _G.KZ_ToFAimDir = nil
 _G.KZ_ToFStamp = 0
@@ -134,4 +136,4 @@ task.spawn(function()
     end
 end)
 
-print("[KZ] KALZZ HUB loaded!", #MODULES)
+print("[KZ] main.lua loaded | modules:", #MODULES)
