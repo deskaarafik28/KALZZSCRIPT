@@ -3,6 +3,7 @@
 local BASE_URL = "https://raw.githubusercontent.com/deskaarafik28/KALZZSCRIPT/refs/heads/main/modules/"
 
 local MODULES = {
+    "config",
     "kick",
     "silent-aim-tof",
     "silent-aim-veil",
@@ -33,17 +34,7 @@ S.INVITE = "discord.gg/dCYTep9cY"
 S.IMG = "rbxassetid://134442738689157"
 S.BASE_URL = BASE_URL
 
-S.CFG = _G.KALZZ_CFG or {
-    tof_on=true, tof_fov=320, tof_predict=2.5, tof_maxdist=800, tof_show_fov=true, tof_laser=true,
-    veil_on=true, veil_fov=320, veil_predict=2.8, veil_maxdist=2000, veil_show_fov=true,
-    parry_on=true, parry_radius=6000, parry_aggro=true, parry_show_circle=false,
-    fast_vault=true,
-    esp_k=true, esp_s=true, esp_g=true, esp_gen_txt=true, esp_item=true, esp_out=false,
-    fov_lock=false, fov_value=120,
-    ambient=true, boost_fps=true, alert=true, stun_on=true,
-    gene_on=false, gene_method="SUCCESS",
-}
-_G.KALZZ_CFG = S.CFG
+S.CFG = _G.KALZZ_CFG or {}
 
 _G.KZ_ToFAimDir = nil
 _G.KZ_ToFStamp = 0
@@ -143,4 +134,4 @@ task.spawn(function()
     end
 end)
 
-print("[KZ] KALZZ HUB loaded!!", #MODULES)
+print("[KZ] KALZZ HUB loaded!", #MODULES)
