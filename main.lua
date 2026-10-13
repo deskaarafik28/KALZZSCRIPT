@@ -3,17 +3,16 @@
 local BASE_URL = "https://raw.githubusercontent.com/deskaarafik28/KALZZSCRIPT/refs/heads/main/modules/"
 
 local MODULES = {
-    "kick-bypass",
-    "silent-aim-veil",
+    "kick",
     "silent-aim-tof",
+    "silent-aim-veil",
     "auto-parry",
     "auto-gen",
     "fast-vault",
     "stun-notif",
-    "alert",
+    "proximity-alert",
     "vision",
     "esp",
-    "utility",
     "ui",
 }
 
@@ -35,7 +34,7 @@ S.IMG = "rbxassetid://134442738689157"
 S.BASE_URL = BASE_URL
 
 S.CFG = _G.KALZZ_CFG or {
-    tof_on=true, tof_fov=500, tof_predict=2.8, tof_maxdist=2000, tof_show_fov=true,
+    tof_on=true, tof_fov=320, tof_predict=2.5, tof_maxdist=800, tof_show_fov=true, tof_laser=true,
     veil_on=true, veil_fov=320, veil_predict=2.8, veil_maxdist=2000, veil_show_fov=true,
     parry_on=true, parry_radius=6000, parry_aggro=true, parry_show_circle=false,
     fast_vault=true,
@@ -109,35 +108,18 @@ S.isLocalKiller = function()
     return false
 end
 
-S.Hooks = { list = {}, installed = false }
-function S.Hooks:Add(name, prio, fn)
-    table.insert(self.list, { name=name, prio=prio or 50, fn=fn })
-    table.sort(self.list, function(a,b) return a.prio < b.prio end)
-end
-function S.Hooks:Install()
-    if self.installed then return end
-    if typeof(hookmetamethod)~="function"
-        or typeof(newcclosure)~="function"
-        or typeof(getnamecallmethod)~="function"
-    then warn("[KZ] executor no hook support") return end
-    self.installed = true
+S.NewHook = function(fn)
+    if typeof(hookmetamethod) ~= "function"
+        or typeof(newcclosure) ~= "function"
+        or typeof(getnamecallmethod) ~= "function"
+    then return nil end
     local OLD
     OLD = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
         local m; pcall(function() m = getnamecallmethod() end)
-        local args = table.pack(...); local n = args.n
-        for _, h in ipairs(S.Hooks.list) do
-            local ok, res = pcall(h.fn, self, m, args, n)
-            if ok then
-                if res == true then return nil end
-                if type(res)=="table" and res.n then
-                    return OLD(self, table.unpack(res, 1, res.n))
-                end
-            end
-        end
-        return OLD(self, table.unpack(args, 1, n))
+        return fn(self, m, OLD, ...)
     end))
+    return OLD
 end
-S.Hooks:Install()
 
 _G.KZ = S
 
@@ -145,8 +127,7 @@ local function loadModule(name)
     local url = BASE_URL .. name .. ".lua"
     local ok, src = pcall(game.HttpGet, game, url)
     if not ok or not src or src == "" then
-        warn("[KZ] gagal load: " .. name)
-        return
+        warn("[KZ] gagal load: " .. name); return
     end
     local fn, err = loadstring(src)
     if not fn then warn("[KZ] syntax error "..name..": "..tostring(err)) return end
@@ -162,4 +143,4 @@ task.spawn(function()
     end
 end)
 
-print("[KZ] main.lua loaded | modules:", #MODULES)
+print("[KZ] KALZZ HUB loaded!!", #MODULES)
