@@ -1,6 +1,10 @@
 -- ============================================================
--- UI HUB (NEO-BRUTALISM STYLE ONLY) - FIXED FULLSCREEN BUG
+-- UI HUB (NEO-BRUTALISM STYLE ONLY) - FULL FIXED
 -- ============================================================
+local UIS = game:GetService("UserInputService")
+local TS = game:GetService("TweenService")
+local PG = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+
 local COL = {
     bg = Color3.fromRGB(255, 230, 0),       -- Kuning cerah
     panel = Color3.fromRGB(0, 0, 0),        -- Hitam pekat
@@ -47,9 +51,7 @@ GUI.IgnoreGuiInset = true
 GUI.DisplayOrder = 999998
 GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 GUI.Enabled = true
-
--- FIX BUG FULLSCREEN: Paksa parent ke PlayerGui, jangan CoreGui/gethui di HP
-GUI.Parent = PG
+GUI.Parent = PG -- Paksa ke PlayerGui biar nggak fullscreen
 
 -- MAIN FRAME (FIXED SIZE: 580 x 480)
 local Main = Instance.new("Frame", GUI)
@@ -62,7 +64,7 @@ Main.BorderSizePixel = 0
 Main.ZIndex = 10
 addStroke(Main, 3)
 
--- FIX BUG FULLSCREEN: Kunci ukuran pake UISizeConstraint
+-- Kunci ukuran pake UISizeConstraint biar ga bisa di stretch jadi fullscreen
 local sizeConstraint = Instance.new("UISizeConstraint", Main)
 sizeConstraint.MaxSize = Vector2.new(580, 480)
 sizeConstraint.MinSize = Vector2.new(580, 480)
@@ -103,7 +105,7 @@ end
 local MinBtn = mkBtn(-68, COL.cyan, "-")
 local ClsBtn = mkBtn(-36, COL.red, "×")
 
--- DRAG
+-- DRAG (Pake UIS yang udah didefinisikan di atas)
 local drg, ds, sp
 Hdr.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
@@ -589,7 +591,6 @@ task.spawn(function()
         end
         if not GUI.Enabled then GUI.Enabled = true end
         if Main and not Main.Parent then Main.Parent = GUI end
-        -- FIX BUG FULLSCREEN: Paksa ukuran balik ke 580x480 tiap 2 detik
         if Main and Main.Size ~= UDim2.new(0, 580, 0, 480) then
             Main.Size = UDim2.new(0, 580, 0, 480)
         end
@@ -608,4 +609,4 @@ UIS.InputBegan:Connect(function(i, g)
     end
 end)
 
-print("[KALZZ HUB V5] - UI Neo-Brutalism Loaded (Size Fixed)")
+print("[KALZZ HUB V5] - UI Neo-Brutalism Loaded (Full Fixed)")
