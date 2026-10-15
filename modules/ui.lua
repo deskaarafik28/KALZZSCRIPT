@@ -1,11 +1,10 @@
 -- ============================================================
--- MODULES/UI.LUA - NEO-BRUTALISM (LENGKAP + KECILIN UI)
+-- MODULES/UI.LUA - NEO-BRUTALISM + CLOSE MODAL (FIXED)
 -- ============================================================
 local UIS = game:GetService("UserInputService")
 local TS = game:GetService("TweenService")
 local PG = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
 
--- Ambil dari _G (di-set oleh config.lua)
 local S = _G.KZ or {}
 local CFG = S.CFG or _G.KALZZ_CFG or {}
 local INVITE = S.INVITE or "discord.gg/dCYTep9cY"
@@ -23,6 +22,7 @@ local COL = {
     brd = Color3.fromRGB(0, 0, 0), tx = Color3.fromRGB(0, 0, 0),
     off = Color3.fromRGB(200, 200, 200), red = Color3.fromRGB(255, 50, 50),
     cyan = Color3.fromRGB(0, 255, 255), pink = Color3.fromRGB(255, 0, 255),
+    green = Color3.fromRGB(50, 220, 100),
 }
 
 local function addStroke(parent, thickness, color)
@@ -39,15 +39,17 @@ local function addShadow(parent, size, pos, anchor)
     return sh
 end
 
+-- ============================================================
+-- MAIN UI (SCALE 0.75)
+-- ============================================================
 local GUI = Instance.new("ScreenGui")
 GUI.Name = "KalzzHub_"..tostring(os.time())
 GUI.ResetOnSpawn = false; GUI.IgnoreGuiInset = true
 GUI.DisplayOrder = 999998; GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 GUI.Enabled = true; GUI.Parent = PG
 
--- KECILIN UI (0.65 = 65% dari ukuran asli)
 local uiScale = Instance.new("UIScale", GUI)
-uiScale.Scale = 0.65
+uiScale.Scale = 0.75
 
 local Main = Instance.new("Frame", GUI)
 Main.Name = "KZ_Main"; Main.Size = UDim2.new(0, 580, 0, 480)
@@ -66,27 +68,27 @@ Hdr.BackgroundColor3 = COL.panel; Hdr.BorderSizePixel = 0; Hdr.ZIndex = 11
 addStroke(Hdr, 2)
 
 local Title = Instance.new("TextLabel", Hdr)
-Title.Size = UDim2.new(1, -140, 0, 20); Title.Position = UDim2.fromOffset(18, 8)
+Title.Size = UDim2.new(1, -160, 0, 20); Title.Position = UDim2.fromOffset(18, 8)
 Title.BackgroundTransparency = 1; Title.Text = "KALZZ HUB"
 Title.TextColor3 = COL.bg; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 16
 Title.TextXAlignment = Enum.TextXAlignment.Left; Title.ZIndex = 12
 
 local Sub = Instance.new("TextLabel", Hdr)
-Sub.Size = UDim2.new(1, -140, 0, 14); Sub.Position = UDim2.fromOffset(18, 28)
+Sub.Size = UDim2.new(1, -160, 0, 14); Sub.Position = UDim2.fromOffset(18, 28)
 Sub.BackgroundTransparency = 1; Sub.Text = INVITE
 Sub.TextColor3 = COL.side; Sub.Font = Enum.Font.GothamBold; Sub.TextSize = 10
 Sub.TextXAlignment = Enum.TextXAlignment.Left; Sub.ZIndex = 12
 
 local function mkBtn(x, col, txt)
     local b = Instance.new("TextButton", Hdr)
-    b.Size = UDim2.fromOffset(26, 26); b.Position = UDim2.new(1, x, 0.5, -13)
+    b.Size = UDim2.fromOffset(32, 32); b.Position = UDim2.new(1, x, 0.5, -16)
     b.BackgroundColor3 = col; b.Text = txt or ""; b.TextColor3 = COL.brd
-    b.Font = Enum.Font.GothamBlack; b.TextSize = 16
+    b.Font = Enum.Font.GothamBlack; b.TextSize = 18
     b.BorderSizePixel = 0; b.AutoButtonColor = false; b.ZIndex = 12
     addStroke(b, 2); return b
 end
-local MinBtn = mkBtn(-68, COL.cyan, "-")
-local ClsBtn = mkBtn(-36, COL.red, "x")
+local MinBtn = mkBtn(-76, COL.cyan, "—")
+local ClsBtn = mkBtn(-40, COL.red, "X")
 
 -- DRAG
 local drg, ds, sp
@@ -343,8 +345,7 @@ TInfo:Btn({Title = "Copy Discord Invite", Callback = function()
     pcall(function() if setclipboard then setclipboard("https://"..INVITE) end end)
 end})
 TInfo:Btn({Title = "Save Config Now", Callback = function()
-    save()
-    print("[KZ] Config saved")
+    save(); print("[KZ] Config saved")
 end})
 
 TSurv:Sec("Silent Aim (ToF)")
@@ -404,25 +405,28 @@ TMisc:Tog("stun_on", {Title = "Stun Killer Notif", Default = CFG.stun_on, Callba
 W:Show("Info")
 
 -- ============================================================
--- FLOAT BUTTON
+-- FLOATING BUTTON (TRANSPARAN KOTAK)
 -- ============================================================
 local FG = Instance.new("ScreenGui")
 FG.Name = "KZ_Float_"..tostring(os.time())
 FG.ResetOnSpawn = false; FG.IgnoreGuiInset = true
-FG.DisplayOrder = 2147483647; FG.Parent = PG
-Instance.new("UIScale", FG).Scale = 0.65
+FG.DisplayOrder = 2147483646; FG.Parent = PG
 
 local FB = Instance.new("TextButton", FG)
-FB.Size = UDim2.fromOffset(70, 70); FB.Position = UDim2.new(0, 20, 0.5, -35)
-FB.BackgroundColor3 = COL.bg; FB.Text = "KZ"; FB.TextColor3 = COL.brd
-FB.Font = Enum.Font.GothamBlack; FB.TextSize = 32
+FB.Size = UDim2.fromOffset(60, 60); FB.Position = UDim2.new(0, 20, 0.5, -30)
+FB.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+FB.BackgroundTransparency = 0.35
+FB.Text = "KZ"; FB.TextColor3 = Color3.fromRGB(255, 255, 255)
+FB.Font = Enum.Font.GothamBlack; FB.TextSize = 28
+FB.TextStrokeTransparency = 0
+FB.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 FB.AutoButtonColor = false; FB.Active = true; FB.Visible = false
-FB.ZIndex = 2147483647; addStroke(FB, 3)
+FB.ZIndex = 10
+addStroke(FB, 3, Color3.fromRGB(255, 255, 255))
+FB.UIStroke.Transparency = 0.4
 
-local fShadow = Instance.new("Frame", FG)
-fShadow.Size = UDim2.fromOffset(70, 70); fShadow.Position = UDim2.new(0, 25, 0.5, -30)
-fShadow.BackgroundColor3 = COL.brd; fShadow.BorderSizePixel = 0
-fShadow.ZIndex = 2147483646; fShadow.Visible = false
+local fbCorner = Instance.new("UICorner", FB)
+fbCorner.CornerRadius = UDim.new(0, 8)
 
 local fD, fStart, fPos, fMoved = false, nil, nil, false
 FB.InputBegan:Connect(function(i)
@@ -436,51 +440,163 @@ UIS.InputChanged:Connect(function(i)
         if d.Magnitude > 8 then
             fMoved = true
             FB.Position = UDim2.new(fPos.X.Scale, fPos.X.Offset + d.X, fPos.Y.Scale, fPos.Y.Offset + d.Y)
-            fShadow.Position = FB.Position + UDim2.fromOffset(5, 5)
         end
     end
 end)
 UIS.InputEnded:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
         if fD and not fMoved then
-            if _G.KZ_ToggleUI then _G.KZ_ToggleUI() end
+            Main.Visible = true
+            FB.Visible = false
         end
         fD = false
         task.delay(0.1, function() fMoved = false end)
     end
 end)
 
-_G.KZ_ShowFloat = function(state) FB.Visible = state; fShadow.Visible = state end
-_G.KZ_ToggleUI = function()
-    if Main.Visible then
-        Main.Visible = false
-        if _G.KZ_ShowFloat then _G.KZ_ShowFloat(true) end
-    else
-        Main.Visible = true
-        if _G.KZ_ShowFloat then _G.KZ_ShowFloat(false) end
-    end
+-- ============================================================
+-- MODAL GUI (TERPISAH - TIDAK KENA UISCALE)
+-- ============================================================
+local ModalGUI = Instance.new("ScreenGui")
+ModalGUI.Name = "KZ_Modal_"..tostring(os.time())
+ModalGUI.ResetOnSpawn = false; ModalGUI.IgnoreGuiInset = true
+ModalGUI.DisplayOrder = 2147483647
+ModalGUI.Enabled = true; ModalGUI.Parent = PG
+
+local ModalOverlay = Instance.new("Frame", ModalGUI)
+ModalOverlay.Name = "KZ_ModalOverlay"
+ModalOverlay.Size = UDim2.new(1, 0, 1, 0)
+ModalOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+ModalOverlay.BackgroundTransparency = 0.5
+ModalOverlay.BorderSizePixel = 0
+ModalOverlay.Visible = false
+ModalOverlay.ZIndex = 100
+
+local ModalBox = Instance.new("Frame", ModalOverlay)
+ModalBox.Size = UDim2.fromOffset(340, 170)
+ModalBox.Position = UDim2.new(0.5, 0, 0.5, 0)
+ModalBox.AnchorPoint = Vector2.new(0.5, 0.5)
+ModalBox.BackgroundColor3 = COL.bg
+ModalBox.BorderSizePixel = 0
+ModalBox.ZIndex = 102
+addStroke(ModalBox, 3)
+
+-- Shadow modal (di dalam overlay, di belakang ModalBox)
+local mShadow = Instance.new("Frame", ModalOverlay)
+mShadow.Size = ModalBox.Size
+mShadow.Position = UDim2.new(0.5, 8, 0.5, 8)
+mShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+mShadow.BackgroundColor3 = COL.brd
+mShadow.BorderSizePixel = 0
+mShadow.ZIndex = 101
+
+local ModalTitle = Instance.new("TextLabel", ModalBox)
+ModalTitle.Size = UDim2.new(1, -20, 0, 32); ModalTitle.Position = UDim2.fromOffset(10, 18)
+ModalTitle.BackgroundTransparency = 1
+ModalTitle.Text = "TUTUP KALZZ HUB?"
+ModalTitle.TextColor3 = COL.brd; ModalTitle.Font = Enum.Font.GothamBlack; ModalTitle.TextSize = 18
+ModalTitle.TextXAlignment = Enum.TextXAlignment.Center; ModalTitle.ZIndex = 103
+
+local ModalSub = Instance.new("TextLabel", ModalBox)
+ModalSub.Size = UDim2.new(1, -20, 0, 20); ModalSub.Position = UDim2.fromOffset(10, 56)
+ModalSub.BackgroundTransparency = 1
+ModalSub.Text = "Bisa dibuka lagi lewat tombol KZ"
+ModalSub.TextColor3 = COL.tx; ModalSub.Font = Enum.Font.GothamBold; ModalSub.TextSize = 11
+ModalSub.TextXAlignment = Enum.TextXAlignment.Center; ModalSub.ZIndex = 103
+
+local BatalBtn = Instance.new("TextButton", ModalBox)
+BatalBtn.Size = UDim2.fromOffset(140, 48); BatalBtn.Position = UDim2.fromOffset(20, 100)
+BatalBtn.BackgroundColor3 = COL.cyan
+BatalBtn.Text = "BATAL"; BatalBtn.TextColor3 = COL.brd
+BatalBtn.Font = Enum.Font.GothamBlack; BatalBtn.TextSize = 14
+BatalBtn.BorderSizePixel = 0; BatalBtn.AutoButtonColor = false; BatalBtn.ZIndex = 103
+addStroke(BatalBtn, 2)
+
+local YesBtn = Instance.new("TextButton", ModalBox)
+YesBtn.Size = UDim2.fromOffset(140, 48); YesBtn.Position = UDim2.fromOffset(180, 100)
+YesBtn.BackgroundColor3 = COL.red
+YesBtn.Text = "YA, TUTUP"; YesBtn.TextColor3 = Color3.fromRGB(255,255,255)
+YesBtn.Font = Enum.Font.GothamBlack; YesBtn.TextSize = 14
+YesBtn.BorderSizePixel = 0; YesBtn.AutoButtonColor = false; YesBtn.ZIndex = 103
+addStroke(YesBtn, 2)
+
+local function showModal()
+    ModalOverlay.Visible = true
+    ModalBox.Position = UDim2.new(0.5, 0, 0.5, -300)
+    mShadow.Position = UDim2.new(0.5, 8, 0.5, -292)
+    TS:Create(ModalBox, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, 0, 0.5, 0)
+    }):Play()
+    TS:Create(mShadow, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, 8, 0.5, 8)
+    }):Play()
 end
 
-MinBtn.MouseButton1Click:Connect(function() Main.Visible = false; if _G.KZ_ShowFloat then _G.KZ_ShowFloat(true) end end)
-ClsBtn.MouseButton1Click:Connect(function() Main.Visible = false; if _G.KZ_ShowFloat then _G.KZ_ShowFloat(true) end end)
+local function hideModal()
+    TS:Create(ModalBox, TweenInfo.new(0.15), {
+        Position = UDim2.new(0.5, 0, 0.5, 300)
+    }):Play()
+    TS:Create(mShadow, TweenInfo.new(0.15), {
+        Position = UDim2.new(0.5, 8, 0.5, 308)
+    }):Play()
+    task.delay(0.16, function() ModalOverlay.Visible = false end)
+end
 
-task.spawn(function()
-    while true do
-        task.wait(2)
-        if not GUI.Parent then GUI.Parent = PG end
-        if not GUI.Enabled then GUI.Enabled = true end
-        if Main and not Main.Parent then Main.Parent = GUI end
-        if Main and Main.Size ~= UDim2.new(0, 580, 0, 480) then Main.Size = UDim2.new(0, 580, 0, 480) end
+BatalBtn.MouseButton1Click:Connect(function()
+    hideModal()
+end)
+
+YesBtn.MouseButton1Click:Connect(function()
+    hideModal()
+    task.delay(0.2, function()
+        Main.Visible = false
+        FB.Visible = true
+    end)
+end)
+
+-- Klik area gelap = BATAL
+ModalOverlay.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        hideModal()
     end
 end)
 
+-- Tombol X → buka modal
+ClsBtn.MouseButton1Click:Connect(function()
+    showModal()
+end)
+
+-- Tombol Minimize → langsung hide
+MinBtn.MouseButton1Click:Connect(function()
+    Main.Visible = false
+    FB.Visible = true
+end)
+
+-- Toggle via keybind
 UIS.InputBegan:Connect(function(i, g)
     if g then return end
     if i.KeyCode == Enum.KeyCode.V then CFG.tof_on = not CFG.tof_on; save() end
     if i.KeyCode == Enum.KeyCode.B then CFG.veil_on = not CFG.veil_on; save() end
     if i.KeyCode == Enum.KeyCode.P then if _G.KZ_ManualParry then _G.KZ_ManualParry() end end
-    if i.KeyCode == Enum.KeyCode.RightShift then if _G.KZ_ToggleUI then _G.KZ_ToggleUI() end end
+    if i.KeyCode == Enum.KeyCode.RightShift then
+        if Main.Visible then
+            showModal()
+        else
+            Main.Visible = true
+            FB.Visible = false
+        end
+    end
 end)
 
-print("[KZ UI] Neo-Brutalism loaded (Scaled 0.65)")
+task.spawn(function()
+    while true do
+        task.wait(2)
+        if not GUI.Parent then GUI.Parent = PG end
+        if not FG.Parent then FG.Parent = PG end
+        if not ModalGUI.Parent then ModalGUI.Parent = PG end
+        if Main and Main.Size ~= UDim2.new(0, 580, 0, 480) then Main.Size = UDim2.new(0, 580, 0, 480) end
+    end
+end)
+
+print("[KZ UI] Neo-Brutalism loaded (Scale 0.75, Modal Fixed)")
 return true
