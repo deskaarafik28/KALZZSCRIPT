@@ -1,29 +1,33 @@
 -- ============================================================
--- UI HUB (NEO-BRUTALISM STYLE ONLY) - FULL LENGKAP
+-- MODULES/UI.LUA - NEO-BRUTALISM
 -- ============================================================
-local UIS = game:GetService("UserInputService") -- INI YANG BIKIN ERROR TADI, JANGAN DIHAPUS
+local UIS = game:GetService("UserInputService")
 local TS = game:GetService("TweenService")
 local PG = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
 
-local COL = {
-    bg = Color3.fromRGB(255, 230, 0),       -- Kuning cerah
-    panel = Color3.fromRGB(0, 0, 0),        -- Hitam pekat
-    side = Color3.fromRGB(255, 255, 255),   -- Putih
-    cardB = Color3.fromRGB(255, 255, 255),  -- Putih untuk kartu
-    tabOn = Color3.fromRGB(0, 255, 255),    -- Cyan
-    brd = Color3.fromRGB(0, 0, 0),          -- Border hitam
-    tx = Color3.fromRGB(0, 0, 0),           -- Teks hitam
-    txD = Color3.fromRGB(30, 30, 30),       -- Teks abu tua
-    txF = Color3.fromRGB(80, 80, 80),       -- Teks abu
-    off = Color3.fromRGB(200, 200, 200),    -- Off state
-    red = Color3.fromRGB(255, 50, 50),      -- Merah
-    cyan = Color3.fromRGB(0, 255, 255),     -- Cyan aksen
-    pink = Color3.fromRGB(255, 0, 255),     -- Magenta aksen
-}
+-- AMBIL DARI _G.KZ (INI YANG BIKIN UI KOSONG TADI)
+local S = _G.KZ
+if not S then 
+    warn("[KZ UI] _G.KZ tidak ditemukan! Pastikan main.lua jalan duluan.")
+    return 
+end
+local CFG = S.CFG
+local INVITE = S.INVITE or "discord.gg/dCYTep9cY"
+local IMG = S.IMG or "rbxassetid://134442738689157"
+local RC = S.RC or { tof=nil, veil=nil, parry=nil, fastvault=nil }
 
--- Fallback jika variabel dari script utama tidak ada
-local INVITE = INVITE or "discord.gg/dCYTep9cY"
-local IMG = IMG or "rbxassetid://134442738689157"
+local COL = {
+    bg = Color3.fromRGB(255, 230, 0),
+    panel = Color3.fromRGB(0, 0, 0),
+    side = Color3.fromRGB(255, 255, 255),
+    cardB = Color3.fromRGB(255, 255, 255),
+    brd = Color3.fromRGB(0, 0, 0),
+    tx = Color3.fromRGB(0, 0, 0),
+    off = Color3.fromRGB(200, 200, 200),
+    red = Color3.fromRGB(255, 50, 50),
+    cyan = Color3.fromRGB(0, 255, 255),
+    pink = Color3.fromRGB(255, 0, 255),
+}
 
 local function addStroke(parent, thickness, color)
     local s = Instance.new("UIStroke", parent)
@@ -51,9 +55,8 @@ GUI.IgnoreGuiInset = true
 GUI.DisplayOrder = 999998
 GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 GUI.Enabled = true
-GUI.Parent = PG -- Paksa ke PlayerGui biar nggak fullscreen
+GUI.Parent = PG
 
--- MAIN FRAME (FIXED SIZE: 580 x 480)
 local Main = Instance.new("Frame", GUI)
 Main.Name = "KZ_Main"
 Main.Size = UDim2.new(0, 580, 0, 480)
@@ -64,14 +67,12 @@ Main.BorderSizePixel = 0
 Main.ZIndex = 10
 addStroke(Main, 3)
 
--- Kunci ukuran pake UISizeConstraint biar ga bisa di stretch jadi fullscreen
 local sizeConstraint = Instance.new("UISizeConstraint", Main)
 sizeConstraint.MaxSize = Vector2.new(580, 480)
 sizeConstraint.MinSize = Vector2.new(580, 480)
 
 addShadow(GUI, Main.Size, Main.Position, Main.AnchorPoint)
 
--- HEADER
 local Hdr = Instance.new("Frame", Main)
 Hdr.Size = UDim2.new(1, -6, 0, 48)
 Hdr.Position = UDim2.fromOffset(3, 3)
@@ -103,9 +104,8 @@ local function mkBtn(x, col, txt)
     return b
 end
 local MinBtn = mkBtn(-68, COL.cyan, "-")
-local ClsBtn = mkBtn(-36, COL.red, "×")
+local ClsBtn = mkBtn(-36, COL.red, "x")
 
--- DRAG (Pake UIS yang udah didefinisikan di atas)
 local drg, ds, sp
 Hdr.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
@@ -122,7 +122,6 @@ UIS.InputEnded:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then drg = false end
 end)
 
--- SIDEBAR
 local Side = Instance.new("Frame", Main)
 Side.Size = UDim2.new(0, 150, 1, -64); Side.Position = UDim2.fromOffset(6, 56)
 Side.BackgroundColor3 = COL.side
@@ -135,7 +134,6 @@ SideL.BackgroundTransparency = 1; SideL.BorderSizePixel = 0
 SideL.ScrollBarThickness = 2; SideL.ScrollBarImageColor3 = COL.brd
 SideL.CanvasSize = UDim2.new(0, 0, 0, 300); SideL.ZIndex = 12
 
--- CONTENT
 local Cont = Instance.new("Frame", Main)
 Cont.Size = UDim2.new(1, -168, 1, -64); Cont.Position = UDim2.fromOffset(162, 56)
 Cont.BackgroundColor3 = COL.side
@@ -210,7 +208,6 @@ function W:AddTab(cfg)
         bc.BorderSizePixel = 0; bc.ZIndex = 14
         addStroke(bc, 2)
         addShadow(p, bc.Size, bc.Position, Vector2.new(0, 0))
-        
         local img = Instance.new("ImageLabel", bc)
         img.Size = UDim2.new(1, -12, 1, -12); img.Position = UDim2.fromOffset(6, 6)
         img.BackgroundTransparency = 1; img.Image = c.Image or IMG
@@ -226,7 +223,6 @@ function W:AddTab(cfg)
         b2.BorderSizePixel = 0; b2.Text = ""; b2.AutoButtonColor = false; b2.ZIndex = 14
         addStroke(b2, 2)
         addShadow(p, b2.Size, b2.Position, Vector2.new(0, 0))
-        
         local l2 = Instance.new("TextLabel", b2)
         l2.Size = UDim2.new(1, -20, 1, 0); l2.Position = UDim2.fromOffset(14, 0)
         l2.BackgroundTransparency = 1; l2.Text = c.Title
@@ -385,7 +381,6 @@ function W:AddTab(cfg)
             opt.BackgroundColor3 = COL.side
             opt.BorderSizePixel = 0; opt.Text = ""; opt.AutoButtonColor = false; opt.ZIndex = 22
             addStroke(opt, 2)
-            
             local oL = Instance.new("TextLabel", opt)
             oL.Size = UDim2.new(1, -16, 1, 0); oL.Position = UDim2.fromOffset(12, 0)
             oL.BackgroundTransparency = 1; oL.Text = v
@@ -420,10 +415,12 @@ function W:AddTab(cfg)
     return t
 end
 
+-- ============================================================
 -- TABS
+-- ============================================================
 local TInfo = W:AddTab({Title = "Info"})
-local TSurv = W:AddTab({Title = "Survivor"})
-local TKil  = W:AddTab({Title = "Killer"})
+local TSurv = W:AddTab({Title = "Penyintas"})
+local TKil  = W:AddTab({Title = "Pembunuh"})
 local TEsp  = W:AddTab({Title = "ESP"})
 local TMisc = W:AddTab({Title = "Misc"})
 
@@ -434,11 +431,6 @@ TInfo:Btn({Title = "Copy Discord Invite", Callback = function()
 end})
 TInfo:Btn({Title = "Print Remote Cache", Callback = function()
     print("[KZ] ToF:", RC.tof, "| Veil:", RC.veil, "| Parry:", RC.parry, "| FV:", RC.fastvault)
-end})
-TInfo:Btn({Title = "Print Aim State", Callback = function()
-    print("[KZ] ToFAimDir:", _G.KZ_ToFAimDir)
-    print("[KZ] VeilLook:", _G.KZ_VeilState.lookVector)
-    print("[KZ] Role:", isLocalKiller() and "Killer" or "Survivor")
 end})
 
 TSurv:Sec("Silent Aim (ToF)")
@@ -501,68 +493,65 @@ end})
 W:Show("Info")
 
 -- FLOAT BUTTON
-pcall(function()
-    local FG = Instance.new("ScreenGui")
-    FG.Name = "KZ_Float_"..tostring(os.time())
-    FG.ResetOnSpawn = false
-    FG.IgnoreGuiInset = true
-    FG.DisplayOrder = 2147483647
-    FG.Parent = PG
+local FG = Instance.new("ScreenGui")
+FG.Name = "KZ_Float_"..tostring(os.time())
+FG.ResetOnSpawn = false
+FG.IgnoreGuiInset = true
+FG.DisplayOrder = 2147483647
+FG.Parent = PG
 
-    local FB = Instance.new("TextButton", FG)
-    FB.Size = UDim2.fromOffset(70, 70)
-    FB.Position = UDim2.new(0, 20, 0.5, -35)
-    FB.BackgroundColor3 = COL.bg
-    FB.Text = "KZ"
-    FB.TextColor3 = COL.brd
-    FB.Font = Enum.Font.GothamBlack
-    FB.TextSize = 32
-    FB.AutoButtonColor = false
-    FB.Active = true
-    FB.Visible = false
-    FB.ZIndex = 2147483647
-    addStroke(FB, 3)
+local FB = Instance.new("TextButton", FG)
+FB.Size = UDim2.fromOffset(70, 70)
+FB.Position = UDim2.new(0, 20, 0.5, -35)
+FB.BackgroundColor3 = COL.bg
+FB.Text = "KZ"
+FB.TextColor3 = COL.brd
+FB.Font = Enum.Font.GothamBlack
+FB.TextSize = 32
+FB.AutoButtonColor = false
+FB.Active = true
+FB.Visible = false
+FB.ZIndex = 2147483647
+addStroke(FB, 3)
 
-    local fShadow = Instance.new("Frame", FG)
-    fShadow.Size = UDim2.fromOffset(70, 70)
-    fShadow.Position = UDim2.new(0, 25, 0.5, -30)
-    fShadow.BackgroundColor3 = COL.brd
-    fShadow.BorderSizePixel = 0
-    fShadow.ZIndex = 2147483646
-    fShadow.Visible = false
+local fShadow = Instance.new("Frame", FG)
+fShadow.Size = UDim2.fromOffset(70, 70)
+fShadow.Position = UDim2.new(0, 25, 0.5, -30)
+fShadow.BackgroundColor3 = COL.brd
+fShadow.BorderSizePixel = 0
+fShadow.ZIndex = 2147483646
+fShadow.Visible = false
 
-    _G.KZ_FloatButton = FB
-    local fD, fStart, fPos, fMoved = false, nil, nil, false
-    FB.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            fD = true; fMoved = false; fStart = i.Position; fPos = FB.Position
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if fD and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-            local d = i.Position - fStart
-            if d.Magnitude > 8 then
-                fMoved = true
-                FB.Position = UDim2.new(fPos.X.Scale, fPos.X.Offset + d.X, fPos.Y.Scale, fPos.Y.Offset + d.Y)
-                fShadow.Position = FB.Position + UDim2.fromOffset(5, 5)
-            end
-        end
-    end)
-    UIS.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            if fD and not fMoved then
-                if _G.KZ_ToggleUI then _G.KZ_ToggleUI() end
-            end
-            fD = false
-            task.delay(0.1, function() fMoved = false end)
-        end
-    end)
-
-    _G.KZ_ShowFloat = function(state) 
-        FB.Visible = state 
-        fShadow.Visible = state
+local fD, fStart, fPos, fMoved = false, nil, nil, false
+FB.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        fD = true; fMoved = false; fStart = i.Position; fPos = FB.Position
     end
 end)
+UIS.InputChanged:Connect(function(i)
+    if fD and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+        local d = i.Position - fStart
+        if d.Magnitude > 8 then
+            fMoved = true
+            FB.Position = UDim2.new(fPos.X.Scale, fPos.X.Offset + d.X, fPos.Y.Scale, fPos.Y.Offset + d.Y)
+            fShadow.Position = FB.Position + UDim2.fromOffset(5, 5)
+        end
+    end
+end)
+UIS.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        if fD and not fMoved then
+            if _G.KZ_ToggleUI then _G.KZ_ToggleUI() end
+        end
+        fD = false
+        task.delay(0.1, function() fMoved = false end)
+    end
+end)
+
+_G.KZ_ShowFloat = function(state) 
+    FB.Visible = state 
+    fShadow.Visible = state
+end
 
 _G.KZ_ToggleUI = function()
     if Main.Visible then
@@ -586,12 +575,9 @@ end)
 task.spawn(function()
     while true do
         task.wait(2)
-        if not GUI.Parent then
-            GUI.Parent = PG
-        end
+        if not GUI.Parent then GUI.Parent = PG end
         if not GUI.Enabled then GUI.Enabled = true end
         if Main and not Main.Parent then Main.Parent = GUI end
-        -- FIX BUG FULLSCREEN: Paksa ukuran balik ke 580x480 tiap 2 detik
         if Main and Main.Size ~= UDim2.new(0, 580, 0, 480) then
             Main.Size = UDim2.new(0, 580, 0, 480)
         end
@@ -610,4 +596,4 @@ UIS.InputBegan:Connect(function(i, g)
     end
 end)
 
-print("[KALZZ HUB V5] - UI Neo-Brutalism Loaded (Full Fixed)")
+print("[KZ UI] Neo-Brutalism loaded")
