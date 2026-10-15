@@ -1,7 +1,7 @@
 --[[
-    Velvet UI Library
+    kalzz UI Library
     Premium dark glassmorphism UI for Roblox
-    PC + Mobile | github.com/DexCodeSX/Velvet
+    PC + Mobile | 
 ]]
 
 local TweenService = game:GetService("TweenService")
