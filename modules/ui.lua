@@ -1,5 +1,5 @@
 -- ============================================================
--- UI HUB (NEO-BRUTALISM STYLE ONLY) - V5 SIZE FIXED
+-- UI HUB (NEO-BRUTALISM STYLE ONLY) - FIXED FULLSCREEN BUG
 -- ============================================================
 local COL = {
     bg = Color3.fromRGB(255, 230, 0),       -- Kuning cerah
@@ -20,11 +20,6 @@ local COL = {
 -- Fallback jika variabel dari script utama tidak ada
 local INVITE = INVITE or "discord.gg/dCYTep9cY"
 local IMG = IMG or "rbxassetid://134442738689157"
-
-local function getParentTarget()
-    if gethui then local ok, h = pcall(gethui); if ok and h then return h end end
-    return CoreGui
-end
 
 local function addStroke(parent, thickness, color)
     local s = Instance.new("UIStroke", parent)
@@ -52,20 +47,26 @@ GUI.IgnoreGuiInset = true
 GUI.DisplayOrder = 999998
 GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 GUI.Enabled = true
-pcall(function() GUI.Parent = getParentTarget() end)
-if not GUI.Parent then GUI.Parent = PG end
-Instance.new("UIScale", GUI).Scale = 0.80
 
--- MAIN FRAME (FIXED SIZE: 580 x 480, SAMA SEPERTI V5)
+-- FIX BUG FULLSCREEN: Paksa parent ke PlayerGui, jangan CoreGui/gethui di HP
+GUI.Parent = PG
+
+-- MAIN FRAME (FIXED SIZE: 580 x 480)
 local Main = Instance.new("Frame", GUI)
 Main.Name = "KZ_Main"
-Main.Size = UDim2.new(0, 580, 0, 480) -- V5 Base Size
+Main.Size = UDim2.new(0, 580, 0, 480)
 Main.Position = UDim2.new(0.5, 0, 0.5, 0)
 Main.AnchorPoint = Vector2.new(0.5, 0.5)
 Main.BackgroundColor3 = COL.bg
 Main.BorderSizePixel = 0
 Main.ZIndex = 10
 addStroke(Main, 3)
+
+-- FIX BUG FULLSCREEN: Kunci ukuran pake UISizeConstraint
+local sizeConstraint = Instance.new("UISizeConstraint", Main)
+sizeConstraint.MaxSize = Vector2.new(580, 480)
+sizeConstraint.MinSize = Vector2.new(580, 480)
+
 addShadow(GUI, Main.Size, Main.Position, Main.AnchorPoint)
 
 -- HEADER
@@ -504,8 +505,7 @@ pcall(function()
     FG.ResetOnSpawn = false
     FG.IgnoreGuiInset = true
     FG.DisplayOrder = 2147483647
-    pcall(function() FG.Parent = getParentTarget() end)
-    if not FG.Parent then FG.Parent = PG end
+    FG.Parent = PG
 
     local FB = Instance.new("TextButton", FG)
     FB.Size = UDim2.fromOffset(70, 70)
@@ -585,11 +585,14 @@ task.spawn(function()
     while true do
         task.wait(2)
         if not GUI.Parent then
-            pcall(function() GUI.Parent = getParentTarget() end)
-            if not GUI.Parent then GUI.Parent = PG end
+            GUI.Parent = PG
         end
         if not GUI.Enabled then GUI.Enabled = true end
         if Main and not Main.Parent then Main.Parent = GUI end
+        -- FIX BUG FULLSCREEN: Paksa ukuran balik ke 580x480 tiap 2 detik
+        if Main and Main.Size ~= UDim2.new(0, 580, 0, 480) then
+            Main.Size = UDim2.new(0, 580, 0, 480)
+        end
     end
 end)
 
