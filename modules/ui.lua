@@ -1,797 +1,602 @@
-local NeonVibes = {}
-NeonVibes.__index = NeonVibes
-
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-
--- Config file
-local CONFIG_FILE = "NeonVibes_Config.json"
-
--- Themes
-local Themes = {
-    Dark = {
-        BgPrimary = Color3.fromRGB(18, 18, 28),
-        BgSecondary = Color3.fromRGB(30, 30, 45),
-        Accent = Color3.fromRGB(35, 35, 55),
-        TextPrimary = Color3.fromRGB(255, 255, 255),
-        NeonColor = Color3.fromRGB(0, 255, 255)
-    },
-    Neon = {
-        BgPrimary = Color3.fromRGB(10, 0, 20),
-        BgSecondary = Color3.fromRGB(20, 0, 40),
-        Accent = Color3.fromRGB(50, 0, 100),
-        TextPrimary = Color3.fromRGB(200, 255, 255),
-        NeonColor = Color3.fromRGB(0, 255, 255)
-    },
-    Light = {
-        BgPrimary = Color3.fromRGB(240, 240, 250),
-        BgSecondary = Color3.fromRGB(220, 220, 235),
-        Accent = Color3.fromRGB(200, 200, 220),
-        TextPrimary = Color3.fromRGB(30, 30, 50),
-        NeonColor = Color3.fromRGB(0, 150, 255)
-    }
+-- ============================================================
+-- UI HUB (NEO-BRUTALISM STYLE ONLY)
+-- ============================================================
+local COL = {
+    bg = Color3.fromRGB(255, 230, 0),
+    panel = Color3.fromRGB(0, 0, 0),
+    side = Color3.fromRGB(255, 255, 255),
+    cardB = Color3.fromRGB(255, 255, 255),
+    tabOn = Color3.fromRGB(0, 255, 255),
+    brd = Color3.fromRGB(0, 0, 0),
+    tx = Color3.fromRGB(0, 0, 0),
+    txD = Color3.fromRGB(30, 30, 30),
+    txF = Color3.fromRGB(80, 80, 80),
+    off = Color3.fromRGB(200, 200, 200),
+    red = Color3.fromRGB(255, 50, 50),
+    cyan = Color3.fromRGB(0, 255, 255),
+    pink = Color3.fromRGB(255, 0, 255),
 }
 
-local CurrentTheme = Themes.Dark
+local function getParentTarget()
+    if gethui then local ok, h = pcall(gethui); if ok and h then return h end end
+    return CoreGui
+end
 
--- Load/Save Config
-local function loadConfig()
-    if isfile(CONFIG_FILE) then
-        local data = readfile(CONFIG_FILE)
-        return game:GetService("HttpService"):JSONDecode(data)
+local function addStroke(parent, thickness, color)
+    local s = Instance.new("UIStroke", parent)
+    s.Color = color or COL.brd
+    s.Thickness = thickness or 2
+    s.LineJoinMode = Enum.LineJoinMode.Miter
+    return s
+end
+
+local function addShadow(parent, size, pos)
+    local sh = Instance.new("Frame", parent)
+    sh.Size = size
+    sh.Position = pos + UDim2.new(0, 5, 0, 5)
+    sh.BackgroundColor3 = COL.brd
+    sh.BorderSizePixel = 0
+    sh.ZIndex = (parent.ZIndex or 1) - 1
+    return sh
+end
+
+local GUI = Instance.new("ScreenGui")
+GUI.Name = "KalzzHub_"..tostring(os.time())
+GUI.ResetOnSpawn = false
+GUI.IgnoreGuiInset = true
+GUI.DisplayOrder = 999998
+GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+GUI.Enabled = true
+pcall(function() GUI.Parent = getParentTarget() end)
+if not GUI.Parent then GUI.Parent = PG end
+Instance.new("UIScale", GUI).Scale = 0.80
+
+-- MAIN FRAME
+local Main = Instance.new("Frame", GUI)
+Main.Name = "KZ_Main"
+Main.Size = UDim2.fromOffset(580, 480)
+Main.Position = UDim2.new(0.5, -290, 0.5, -240)
+Main.BackgroundColor3 = COL.bg
+Main.BorderSizePixel = 0
+Main.ZIndex = 10
+addStroke(Main, 3)
+addShadow(GUI, Main.Size, Main.Position)
+
+-- HEADER
+local Hdr = Instance.new("Frame", Main)
+Hdr.Size = UDim2.new(1, -6, 0, 48)
+Hdr.Position = UDim2.fromOffset(3, 3)
+Hdr.BackgroundColor3 = COL.panel
+Hdr.BorderSizePixel = 0
+Hdr.ZIndex = 11
+addStroke(Hdr, 2)
+
+local Title = Instance.new("TextLabel", Hdr)
+Title.Size = UDim2.new(1, -140, 0, 20); Title.Position = UDim2.fromOffset(18, 8)
+Title.BackgroundTransparency = 1; Title.Text = "KALZZ HUB"
+Title.TextColor3 = COL.bg; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 16
+Title.TextXAlignment = Enum.TextXAlignment.Left; Title.ZIndex = 12
+
+local Sub = Instance.new("TextLabel", Hdr)
+Sub.Size = UDim2.new(1, -140, 0, 14); Sub.Position = UDim2.fromOffset(18, 28)
+Sub.BackgroundTransparency = 1; Sub.Text = INVITE
+Sub.TextColor3 = COL.side; Sub.Font = Enum.Font.GothamBold; Sub.TextSize = 10
+Sub.TextXAlignment = Enum.TextXAlignment.Left; Sub.ZIndex = 12
+
+local function mkBtn(x, col, txt)
+    local b = Instance.new("TextButton", Hdr)
+    b.Size = UDim2.fromOffset(26, 26); b.Position = UDim2.new(1, x, 0.5, -13)
+    b.BackgroundColor3 = col
+    b.Text = txt or ""; b.TextColor3 = COL.brd
+    b.Font = Enum.Font.GothamBlack; b.TextSize = 16
+    b.BorderSizePixel = 0; b.AutoButtonColor = false; b.ZIndex = 12
+    addStroke(b, 2)
+    return b
+end
+local MinBtn = mkBtn(-68, COL.cyan, "-")
+local ClsBtn = mkBtn(-36, COL.red, "×")
+
+-- DRAG
+local drg, ds, sp
+Hdr.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        drg = true; ds = i.Position; sp = Main.Position
     end
-    return {}
-end
-
-local function saveConfig(config)
-    writefile(CONFIG_FILE, game:GetService("HttpService"):JSONEncode(config))
-end
-
-local config = loadConfig()
-
--- ScreenGui
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "NeonVibes"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = PlayerGui
-
--- Reopen icon
-local reopenIcon = Instance.new("TextButton")
-reopenIcon.Size = UDim2.new(0, 60, 0, 60)
-reopenIcon.Position = UDim2.new(0, 20, 0, 20)
-reopenIcon.BackgroundColor3 = CurrentTheme.NeonColor
-reopenIcon.Text = "N"
-reopenIcon.TextColor3 = Color3.new(0,0,0)
-reopenIcon.TextSize = 32
-reopenIcon.Font = Enum.Font.GothamBold
-reopenIcon.Visible = false
-reopenIcon.Parent = ScreenGui
-
-local iconCorner = Instance.new("UICorner")
-iconCorner.CornerRadius = UDim.new(1, 0)
-iconCorner.Parent = reopenIcon
-
-local iconStroke = Instance.new("UIStroke")
-iconStroke.Color = Color3.new(1,1,1)
-iconStroke.Thickness = 3
-iconStroke.Parent = reopenIcon
-
--- Drag function
-local function DragFunction(frame)
-    local dragging = false
-    local dragInput, dragStart, startPos
-    
-    frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = frame.Position
-            
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-    
-    frame.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
-        end
-    end)
-    
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input == dragInput) then
-            local delta = input.Position - dragStart
-            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-end
-
-function NeonVibes:CreateWindow(name)
-    local window = {}
-    
-    local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(CONFIG.WindowWidthScale, 0, CONFIG.WindowHeightScale, 0)
-    MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-    MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-    MainFrame.BackgroundColor3 = CurrentTheme.BgPrimary
-    MainFrame.BorderSizePixel = 0
-    MainFrame.Parent = ScreenGui
-    
-    local MainCorner = Instance.new("UICorner")
-    MainCorner.CornerRadius = CONFIG.CornerRadius
-    MainCorner.Parent = MainFrame
-    
-    local MainStroke = Instance.new("UIStroke")
-    MainStroke.Color = CurrentTheme.NeonColor
-    MainStroke.Thickness = CONFIG.Stroke
-    MainStroke.Parent = MainFrame
-    
-    -- Title Bar
-    local TitleBar = Instance.new("Frame")
-    TitleBar.Size = UDim2.new(1, 0, 0, 50)
-    TitleBar.BackgroundColor3 = CurrentTheme.Accent
-    TitleBar.Parent = MainFrame
-    
-    local TitleCorner = Instance.new("UICorner")
-    TitleCorner.CornerRadius = CONFIG.CornerRadius
-    TitleCorner.Parent = TitleBar
-    
-    local TitleLabel = Instance.new("TextLabel")
-    TitleLabel.Size = UDim2.new(1, -100, 1, 0)
-    TitleLabel.Position = UDim2.new(0, 15, 0, 0)
-    TitleLabel.BackgroundTransparency = 1
-    TitleLabel.Text = name or "NeonVibes"
-    TitleLabel.TextColor3 = CurrentTheme.NeonColor
-    TitleLabel.TextSize = 18
-    TitleLabel.Font = Enum.Font.GothamBold
-    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    TitleLabel.Parent = TitleBar
-    
-    -- Close Button
-    local CloseBtn = Instance.new("TextButton")
-    CloseBtn.Size = UDim2.new(0, 38, 0, 38)
-    CloseBtn.Position = UDim2.new(1, -45, 0.5, -19)
-    CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
-    CloseBtn.Text = "×"
-    CloseBtn.TextColor3 = Color3.new(1,1,1)
-    CloseBtn.TextSize = 20
-    CloseBtn.Font = Enum.Font.GothamBold
-    CloseBtn.Parent = TitleBar
-    
-    local CloseCorner = Instance.new("UICorner")
-    CloseCorner.CornerRadius = UDim.new(0, 10)
-    CloseCorner.Parent = CloseBtn
-    
-    CloseBtn.MouseButton1Click:Connect(function()
-        TweenService:Create(MainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0,0,0,0)}):Play()
-        task.wait(0.3)
-        MainFrame.Visible = false
-        reopenIcon.Visible = true
-    end)
-    
-    -- Reopen
-    reopenIcon.MouseButton1Click:Connect(function()
-        MainFrame.Visible = true
-        TweenService:Create(MainFrame, TweenInfo.new(0.3), {Size = UDim2.new(CONFIG.WindowWidthScale, 0, CONFIG.WindowHeightScale, 0)}):Play()
-        reopenIcon.Visible = false
-    end)
-    
-    DragFunction(TitleBar)
-    
-    -- Tab Bar
-    local TabBar = Instance.new("Frame")
-    TabBar.Size = UDim2.new(1, 0, 0, 38)
-    TabBar.Position = UDim2.new(0, 0, 0, 50)
-    TabBar.BackgroundTransparency = 1
-    TabBar.Parent = MainFrame
-    
-    local TabScroll = Instance.new("ScrollingFrame")
-    TabScroll.Size = UDim2.new(1, 0, 1, 0)
-    TabScroll.BackgroundTransparency = 1
-    TabScroll.ScrollBarThickness = 0
-    TabScroll.ScrollingDirection = Enum.ScrollingDirection.X
-    TabScroll.AutomaticCanvasSize = Enum.AutomaticSize.X
-    TabScroll.Parent = TabBar
-    
-    local TabLayout = Instance.new("UIListLayout")
-    TabLayout.FillDirection = Enum.FillDirection.Horizontal
-    TabLayout.Padding = UDim.new(0, 10)
-    TabLayout.Parent = TabScroll
-    
-    -- Content
-    local Content = Instance.new("ScrollingFrame")
-    Content.Size = UDim2.new(1, -24, 1, -96)
-    Content.Position = UDim2.new(0, 12, 0, 88)
-    Content.BackgroundTransparency = 1
-    Content.ScrollBarThickness = 4
-    Content.ScrollBarImageColor3 = CurrentTheme.NeonColor
-    Content.Parent = MainFrame
-    
-    local ContentLayout = Instance.new("UIListLayout")
-    ContentLayout.Padding = UDim.new(0, CONFIG.Padding)
-    ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    ContentLayout.Parent = Content
-    
-    local ContentPadding = Instance.new("UIPadding")
-    ContentPadding.PaddingLeft = UDim.new(0, CONFIG.Padding)
-    ContentPadding.PaddingRight = UDim.new(0, CONFIG.Padding)
-    ContentPadding.PaddingTop = UDim.new(0, 8)
-    ContentPadding.PaddingBottom = UDim.new(0, CONFIG.Padding)
-    ContentPadding.Parent = Content
-    
-    ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        Content.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + CONFIG.Padding * 4)
-    end)
-    
-    local function switchTab(tabContent)
-        for _, child in pairs(Content:GetChildren()) do
-            if child:IsA("ScrollingFrame") then
-                child.Visible = false
-            end
-        end
-        tabContent.Visible = true
+end)
+UIS.InputChanged:Connect(function(i)
+    if drg and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+        local d = i.Position - ds
+        Main.Position = UDim2.new(sp.X.Scale, sp.X.Offset + d.X, sp.Y.Scale, sp.Y.Offset + d.Y)
     end
+end)
+UIS.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then drg = false end
+end)
+
+-- SIDEBAR
+local Side = Instance.new("Frame", Main)
+Side.Size = UDim2.new(0, 150, 1, -64); Side.Position = UDim2.fromOffset(6, 56)
+Side.BackgroundColor3 = COL.side
+Side.BorderSizePixel = 0; Side.ZIndex = 11
+addStroke(Side, 2)
+
+local SideL = Instance.new("ScrollingFrame", Side)
+SideL.Size = UDim2.new(1, -8, 1, -8); SideL.Position = UDim2.fromOffset(4, 4)
+SideL.BackgroundTransparency = 1; SideL.BorderSizePixel = 0
+SideL.ScrollBarThickness = 2; SideL.ScrollBarImageColor3 = COL.brd
+SideL.CanvasSize = UDim2.new(0, 0, 0, 300); SideL.ZIndex = 12
+
+-- CONTENT
+local Cont = Instance.new("Frame", Main)
+Cont.Size = UDim2.new(1, -168, 1, -64); Cont.Position = UDim2.fromOffset(162, 56)
+Cont.BackgroundColor3 = COL.side
+Cont.BorderSizePixel = 0; Cont.ZIndex = 11
+addStroke(Cont, 2)
+
+local CT = Instance.new("TextLabel", Cont)
+CT.Size = UDim2.new(1, -32, 0, 22); CT.Position = UDim2.fromOffset(16, 14)
+CT.BackgroundTransparency = 1; CT.Text = ""
+CT.TextColor3 = COL.tx; CT.Font = Enum.Font.GothamBlack; CT.TextSize = 16
+CT.TextXAlignment = Enum.TextXAlignment.Left; CT.ZIndex = 12
+
+local CSL = Instance.new("ScrollingFrame", Cont)
+CSL.Size = UDim2.new(1, -16, 1, -50); CSL.Position = UDim2.fromOffset(8, 44)
+CSL.BackgroundTransparency = 1; CSL.BorderSizePixel = 0
+CSL.ScrollBarThickness = 3; CSL.ScrollBarImageColor3 = COL.brd
+CSL.CanvasSize = UDim2.new(0, 0, 0, 2000); CSL.ZIndex = 12
+
+local W = {T={}, TB={}, Cur=nil, Cnt=0}
+function W:Show(n)
+    for k, p in pairs(self.T) do p.P.Visible = (k == n) end
+    for k, b in pairs(self.TB) do
+        local a = (k == n)
+        TS:Create(b, TweenInfo.new(0.1), {
+            BackgroundColor3 = a and COL.cyan or COL.side,
+            BackgroundTransparency = 0
+        }):Play()
+        local l = b:FindFirstChild("Lbl")
+        if l then TS:Create(l, TweenInfo.new(0.1), {TextColor3 = COL.brd}):Play() end
+    end
+    self.Cur = n
+    CT.Text = n
+end
+
+function W:AddTab(cfg)
+    local n = cfg.Title
+    self.Cnt = self.Cnt + 1
+    local i = self.Cnt - 1
+    local b = Instance.new("TextButton", SideL)
+    b.Size = UDim2.new(1, -4, 0, 34)
+    b.Position = UDim2.new(0, 2, 0, i * 38 + 2)
+    b.BackgroundColor3 = COL.side
+    b.BorderSizePixel = 0; b.Text = ""; b.AutoButtonColor = false; b.ZIndex = 13
+    addStroke(b, 2)
     
-    function window:CreateTab(name)
-        local tabBtn = Instance.new("TextButton")
-        tabBtn.Size = UDim2.new(0, 120, 1, 0)
-        tabBtn.BackgroundColor3 = CurrentTheme.BgSecondary
-        tabBtn.Text = name
-        tabBtn.TextColor3 = CurrentTheme.TextPrimary
-        tabBtn.TextSize = CONFIG.TextSize
-        tabBtn.Font = Enum.Font.GothamSemibold
-        tabBtn.Parent = TabScroll
+    local l = Instance.new("TextLabel", b)
+    l.Name = "Lbl"; l.Size = UDim2.new(1, -20, 1, 0); l.Position = UDim2.fromOffset(14, 0)
+    l.BackgroundTransparency = 1; l.Text = n
+    l.TextColor3 = COL.brd; l.Font = Enum.Font.GothamBlack; l.TextSize = 12
+    l.TextXAlignment = Enum.TextXAlignment.Left; l.ZIndex = 14
+    b.MouseButton1Click:Connect(function() W:Show(n) end)
+    
+    local p = Instance.new("Frame", CSL)
+    p.Size = UDim2.new(1, 0, 0, 2000)
+    p.BackgroundTransparency = 1; p.Visible = false; p.ZIndex = 13
+    local t = {P=p, Y=4}
+
+    function t:Sec(s)
+        local x = Instance.new("TextLabel", p)
+        x.Size = UDim2.new(1, -8, 0, 24); x.Position = UDim2.fromOffset(4, self.Y)
+        x.BackgroundTransparency = 1; x.Text = string.upper(s)
+        x.TextColor3 = COL.brd; x.Font = Enum.Font.GothamBlack; x.TextSize = 11
+        x.TextXAlignment = Enum.TextXAlignment.Left; x.ZIndex = 14
+        self.Y = self.Y + 28
+        return self
+    end
+
+    function t:Banner(c)
+        local bc = Instance.new("Frame", p)
+        bc.Size = UDim2.new(1, -8, 0, 120); bc.Position = UDim2.fromOffset(4, self.Y)
+        bc.BackgroundColor3 = COL.cardB
+        bc.BorderSizePixel = 0; bc.ZIndex = 14
+        addStroke(bc, 2)
+        addShadow(p, bc.Size, bc.Position)
         
-        local tabCorner = Instance.new("UICorner")
-        tabCorner.CornerRadius = UDim.new(0, 8)
-        tabCorner.Parent = tabBtn
+        local img = Instance.new("ImageLabel", bc)
+        img.Size = UDim2.new(1, -12, 1, -12); img.Position = UDim2.fromOffset(6, 6)
+        img.BackgroundTransparency = 1; img.Image = c.Image or IMG
+        img.ScaleType = Enum.ScaleType.Crop; img.ZIndex = 15
+        self.Y = self.Y + 132
+        return self
+    end
+
+    function t:Btn(c)
+        local b2 = Instance.new("TextButton", p)
+        b2.Size = UDim2.new(1, -8, 0, 38); b2.Position = UDim2.fromOffset(4, self.Y)
+        b2.BackgroundColor3 = COL.cyan
+        b2.BorderSizePixel = 0; b2.Text = ""; b2.AutoButtonColor = false; b2.ZIndex = 14
+        addStroke(b2, 2)
+        addShadow(p, b2.Size, b2.Position)
         
-        local tabContent = Instance.new("ScrollingFrame")
-        tabContent.Size = UDim2.new(1, 0, 1, 0)
-        tabContent.BackgroundTransparency = 1
-        tabContent.Visible = false
-        tabContent.ScrollBarThickness = 5
-        tabContent.ScrollBarImageColor3 = CurrentTheme.NeonColor
-        tabContent.Parent = Content
-        
-        local tabLayout = Instance.new("UIListLayout")
-        tabLayout.Padding = UDim.new(0, CONFIG.Padding)
-        tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        tabLayout.Parent = tabContent
-        
-        local tabPadding = Instance.new("UIPadding")
-        tabPadding.PaddingLeft = UDim.new(0, CONFIG.Padding)
-        tabPadding.PaddingRight = UDim.new(0, CONFIG.Padding)
-        tabPadding.PaddingTop = UDim.new(0, 8)
-        tabPadding.PaddingBottom = UDim.new(0, CONFIG.Padding)
-        tabPadding.Parent = tabContent
-        
-        tabBtn.MouseButton1Click:Connect(function()
-            switchTab(tabContent)
+        local l2 = Instance.new("TextLabel", b2)
+        l2.Size = UDim2.new(1, -20, 1, 0); l2.Position = UDim2.fromOffset(14, 0)
+        l2.BackgroundTransparency = 1; l2.Text = c.Title
+        l2.TextColor3 = COL.brd; l2.Font = Enum.Font.GothamBlack; l2.TextSize = 12
+        l2.TextXAlignment = Enum.TextXAlignment.Left; l2.ZIndex = 15
+        b2.MouseButton1Click:Connect(function() if c.Callback then pcall(c.Callback) end end)
+        self.Y = self.Y + 44
+        return self
+    end
+
+    function t:Tog(id, c)
+        local row = Instance.new("Frame", p)
+        row.Size = UDim2.new(1, -8, 0, 42); row.Position = UDim2.fromOffset(4, self.Y)
+        row.BackgroundColor3 = COL.cardB
+        row.BorderSizePixel = 0; row.ZIndex = 14
+        addStroke(row, 2)
+        addShadow(p, row.Size, row.Position)
+
+        local l2 = Instance.new("TextLabel", row)
+        l2.Size = UDim2.new(1, -80, 1, 0); l2.Position = UDim2.fromOffset(14, 0)
+        l2.BackgroundTransparency = 1; l2.Text = c.Title or id
+        l2.TextColor3 = COL.tx; l2.Font = Enum.Font.GothamBold; l2.TextSize = 12
+        l2.TextXAlignment = Enum.TextXAlignment.Left; l2.ZIndex = 15
+
+        local st = c.Default or false
+        local tr = Instance.new("Frame", row)
+        tr.Size = UDim2.fromOffset(40, 22); tr.Position = UDim2.new(1, -54, 0.5, -11)
+        tr.BackgroundColor3 = st and COL.brd or COL.off
+        tr.BorderSizePixel = 0; tr.ZIndex = 15
+        addStroke(tr, 2)
+
+        local k = Instance.new("Frame", tr)
+        k.Size = UDim2.fromOffset(14, 14)
+        k.Position = st and UDim2.new(1, -18, 0.5, -7) or UDim2.new(0, 4, 0.5, -7)
+        k.BackgroundColor3 = st and COL.cyan or COL.side
+        k.BorderSizePixel = 0; k.ZIndex = 16
+        addStroke(k, 2)
+
+        local btn = Instance.new("TextButton", row)
+        btn.Size = UDim2.new(1, 0, 1, 0); btn.BackgroundTransparency = 1; btn.Text = ""; btn.ZIndex = 17
+        btn.MouseButton1Click:Connect(function()
+            st = not st
+            TS:Create(k, TweenInfo.new(0.1), {
+                Position = st and UDim2.new(1, -18, 0.5, -7) or UDim2.new(0, 4, 0.5, -7),
+                BackgroundColor3 = st and COL.cyan or COL.side
+            }):Play()
+            TS:Create(tr, TweenInfo.new(0.1), {
+                BackgroundColor3 = st and COL.brd or COL.off
+            }):Play()
+            if c.Callback then pcall(c.Callback, st) end
         end)
-        
-        if not window.CurrentTab then
-            switchTab(tabContent)
-            window.CurrentTab = tabContent
-        end
-        
-        local tabElements = {}
-        
-        function tabElements:Button(text, callback)
-            local Btn = Instance.new("TextButton")
-            Btn.Size = UDim2.new(1, 0, 0, CONFIG.ElementHeight)
-            Btn.BackgroundColor3 = CurrentTheme.BgSecondary
-            Btn.Text = text
-            Btn.TextColor3 = CurrentTheme.TextPrimary
-            Btn.TextSize = CONFIG.TextSize
-            Btn.Font = Enum.Font.GothamSemibold
-            Btn.Parent = tabContent
-            
-            local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(0, 8)
-            corner.Parent = Btn
-            
-            Btn.MouseButton1Click:Connect(callback or function() end)
-        end
-        
-        function tabElements:Label(text, rainbow)
-            local Label = Instance.new("TextLabel")
-            Label.Size = UDim2.new(1, 0, 0, CONFIG.ElementHeight)
-            Label.BackgroundTransparency = 1
-            Label.Text = text
-            Label.TextColor3 = CurrentTheme.TextPrimary
-            Label.TextSize = CONFIG.TextSize
-            Label.Font = Enum.Font.Gotham
-            Label.TextWrapped = true
-            Label.Parent = tabContent
-            
-            if rainbow then
-                spawn(function()
-                    while wait() do
-                        local hue = tick() % 5 / 5
-                        Label.TextColor3 = Color3.fromHSV(hue, 1, 1)
-                    end
-                end)
-            end
-        end
-        
-        function tabElements:Toggle(text, default, callback, flag)
-            local Frame = Instance.new("Frame")
-            Frame.Size = UDim2.new(1, 0, 0, CONFIG.ElementHeight)
-            Frame.BackgroundTransparency = 1
-            Frame.Parent = tabContent
-            
-            local Label = Instance.new("TextLabel")
-            Label.Size = UDim2.new(1, -80, 1, 0)
-            Label.BackgroundTransparency = 1
-            Label.Text = text
-            Label.TextColor3 = CurrentTheme.TextPrimary
-            Label.TextSize = CONFIG.TextSize
-            Label.TextXAlignment = Enum.TextXAlignment.Left
-            Label.Parent = Frame
-            
-            local ToggleBg = Instance.new("Frame")
-            ToggleBg.Size = UDim2.new(0, 50, 0, 26)
-            ToggleBg.Position = UDim2.new(1, -65, 0.5, -13)
-            ToggleBg.BackgroundColor3 = default and CurrentTheme.NeonColor or Color3.fromRGB(60, 60, 80)
-            ToggleBg.Parent = Frame
-            
-            local BgCorner = Instance.new("UICorner")
-            BgCorner.CornerRadius = UDim.new(0, 13)
-            BgCorner.Parent = ToggleBg
-            
-            local Knob = Instance.new("Frame")
-            Knob.Size = UDim2.new(0, 22, 0, 22)
-            Knob.Position = default and UDim2.new(1, -26, 0.5, -11) or UDim2.new(0, 2, 0.5, -11)
-            Knob.BackgroundColor3 = CurrentTheme.TextPrimary
-            Knob.Parent = ToggleBg
-            
-            local KnobCorner = Instance.new("UICorner")
-            KnobCorner.CornerRadius = UDim.new(0, 11)
-            KnobCorner.Parent = Knob
-            
-            local state = config[flag] or default or false
-            
-            ToggleBg.BackgroundColor3 = state and CurrentTheme.NeonColor or Color3.fromRGB(60, 60, 80)
-            Knob.Position = state and UDim2.new(1, -26, 0.5, -11) or UDim2.new(0, 2, 0.5, -11)
-            
-            Frame.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    state = not state
-                    TweenService:Create(ToggleBg, TweenInfo.new(0.2), {BackgroundColor3 = state and CurrentTheme.NeonColor or Color3.fromRGB(60, 60, 80)}):Play()
-                    TweenService:Create(Knob, TweenInfo.new(0.2), {Position = state and UDim2.new(1, -26, 0.5, -11) or UDim2.new(0, 2, 0.5, -11)}):Play()
-                    if callback then callback(state) end
-                    if flag then config[flag] = state; saveConfig(config) end
-                end
-            end)
-        end
-        
-        function tabElements:Slider(text, min, max, default, callback, flag)
-            local Frame = Instance.new("Frame")
-            Frame.Size = UDim2.new(1, 0, 0, 70)
-            Frame.BackgroundTransparency = 1
-            Frame.Parent = tabContent
-            
-            local Label = Instance.new("TextLabel")
-            Label.Size = UDim2.new(1, 0, 0, 25)
-            Label.BackgroundTransparency = 1
-            Label.Text = text .. ": " .. (config[flag] or default)
-            Label.TextColor3 = CurrentTheme.TextPrimary
-            Label.TextSize = CONFIG.TextSize
-            Label.Parent = Frame
-            
-            local SliderBg = Instance.new("Frame")
-            SliderBg.Size = UDim2.new(1, 0, 0, 8)
-            SliderBg.Position = UDim2.new(0, 0, 0, 40)
-            SliderBg.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-            SliderBg.Parent = Frame
-            
-            local SliderCorner = Instance.new("UICorner")
-            SliderCorner.CornerRadius = UDim.new(0, 4)
-            SliderCorner.Parent = SliderBg
-            
-            local SliderFill = Instance.new("Frame")
-            local initial = config[flag] or default
-            local percent = (initial - min) / (max - min)
-            SliderFill.Size = UDim2.new(percent, 0, 1, 0)
-            SliderFill.BackgroundColor3 = CurrentTheme.NeonColor
-            SliderFill.Parent = SliderBg
-            
-            local FillCorner = Instance.new("UICorner")
-            FillCorner.CornerRadius = UDim.new(0, 4)
-            FillCorner.Parent = SliderFill
-            
-            local dragging = false
-            
-            local Hitbox = Instance.new("TextButton")
-            Hitbox.Size = UDim2.new(1, 0, 1, 0)
-            Hitbox.BackgroundTransparency = 1
-            Hitbox.Text = ""
-            Hitbox.Parent = Frame
-            
-            Hitbox.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    dragging = true
-                end
-            end)
-            
-            UserInputService.InputChanged:Connect(function(input)
-                if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                    local relative = math.clamp((input.Position.X - SliderBg.AbsolutePosition.X) / SliderBg.AbsoluteSize.X, 0, 1)
-                    local value = math.round(min + (max - min) * relative)
-                    SliderFill.Size = UDim2.new(relative, 0, 1, 0)
-                    Label.Text = text .. ": " .. value
-                    if callback then callback(value) end
-                    if flag then config[flag] = value; saveConfig(config) end
-                end
-            end)
-            
-            Hitbox.InputEnded:Connect(function()
-                dragging = false
-            end)
-        end
-        
-        -- Box (Textbox)
-        function tabElements:Box(text, default, callback, flag)
-            local Frame = Instance.new("Frame")
-            Frame.Size = UDim2.new(1, 0, 0, CONFIG.ElementHeight)
-            Frame.BackgroundTransparency = 1
-            Frame.Parent = tabContent
-            
-            local Label = Instance.new("TextLabel")
-            Label.Size = UDim2.new(0.4, 0, 1, 0)
-            Label.BackgroundTransparency = 1
-            Label.Text = text
-            Label.TextColor3 = CurrentTheme.TextPrimary
-            Label.TextSize = CONFIG.TextSize
-            Label.TextXAlignment = Enum.TextXAlignment.Left
-            Label.Parent = Frame
-            
-            local Box = Instance.new("TextBox")
-            Box.Size = UDim2.new(0.6, 0, 0.8, 0)
-            Box.Position = UDim2.new(0.4, 0, 0.1, 0)
-            Box.BackgroundColor3 = CurrentTheme.BgSecondary
-            Box.Text = config[flag] or default or ""
-            Box.PlaceholderText = "..."
-            Box.TextColor3 = CurrentTheme.TextPrimary
-            Box.TextSize = CONFIG.TextSize
-            Box.Parent = Frame
-            
-            local BoxCorner = Instance.new("UICorner")
-            BoxCorner.CornerRadius = UDim.new(0, 8)
-            BoxCorner.Parent = Box
-            
-            Box.FocusLost:Connect(function()
-                if callback then callback(Box.Text, true) end
-                if flag then config[flag] = Box.Text; saveConfig(config) end
-            end)
-            
-            Box:GetPropertyChangedSignal("Text"):Connect(function()
-                if callback then callback(Box.Text, false) end
-            end)
-        end
-        
-        -- Dropdown
-        function tabElements:Dropdown(text, buttons, callback, selective, flag)
-            local Dropdown = Instance.new("TextButton")
-            Dropdown.Size = UDim2.new(1, 0, 0, CONFIG.ElementHeight)
-            Dropdown.BackgroundColor3 = CurrentTheme.BgSecondary
-            Dropdown.Text = config[flag] or text
-            Dropdown.TextColor3 = CurrentTheme.TextPrimary
-            Dropdown.TextSize = CONFIG.TextSize
-            Dropdown.Parent = tabContent
-            
-            local DownSign = Instance.new("TextLabel")
-            DownSign.Size = UDim2.new(0, 30, 0, 30)
-            DownSign.Position = UDim2.new(1, -35, 0.5, -15)
-            DownSign.BackgroundTransparency = 1
-            DownSign.Text = "▼"
-            DownSign.TextColor3 = CurrentTheme.TextPrimary
-            DownSign.TextSize = 20
-            DownSign.Parent = Dropdown
-            
-            local DropdownFrame = Instance.new("ScrollingFrame")
-            DropdownFrame.Size = UDim2.new(1, 0, 0, 0)
-            DropdownFrame.Position = UDim2.new(0, 0, 1, 0)
-            DropdownFrame.BackgroundColor3 = CurrentTheme.BgSecondary
-            DropdownFrame.Visible = false
-            DropdownFrame.Parent = Dropdown
-            
-            local DropLayout = Instance.new("UIListLayout")
-            DropLayout.Padding = UDim.new(0, 2)
-            DropLayout.Parent = DropdownFrame
-            
-            Dropdown.MouseButton1Click:Connect(function()
-                DropdownFrame.Visible = not DropdownFrame.Visible
-                DownSign.Text = DropdownFrame.Visible and "▲" or "▼"
-            end)
-            
-            local function addOption(opt)
-                local OptBtn = Instance.new("TextButton")
-                OptBtn.Size = UDim2.new(1, 0, 0, CONFIG.ElementHeight)
-                OptBtn.BackgroundColor3 = CurrentTheme.Accent
-                OptBtn.Text = opt
-                OptBtn.TextColor3 = CurrentTheme.TextPrimary
-                OptBtn.TextSize = CONFIG.TextSize
-                OptBtn.Parent = DropdownFrame
-                
-                OptBtn.MouseButton1Click:Connect(function()
-                    if selective then
-                        Dropdown.Text = opt
-                    end
-                    if callback then callback(opt) end
-                    DropdownFrame.Visible = false
-                    DownSign.Text = "▼"
-                    if flag then config[flag] = opt; saveConfig(config) end
-                end)
-            end
-            
-            for _, b in ipairs(buttons or {}) do
-                addOption(b)
-            end
-            
-            local dropFuncs = {}
-            function dropFuncs:Button(name)
-                addOption(name)
-            end
-            
-            return dropFuncs
-        end
-        
-        -- ColorPicker (simplified)
-        function tabElements:ColorPicker(name, default, callback, flag)
-            local ColorPicker = Instance.new("TextButton")
-            ColorPicker.Size = UDim2.new(1, 0, 0, CONFIG.ElementHeight)
-            ColorPicker.BackgroundColor3 = config[flag] or default or CONFIG.NeonColor
-            ColorPicker.Text = ""
-            ColorPicker.Parent = tabContent
-            
-            local PickerLabel = Instance.new("TextLabel")
-            PickerLabel.Size = UDim2.new(0.6, 0, 1, 0)
-            PickerLabel.BackgroundTransparency = 1
-            PickerLabel.Text = name
-            PickerLabel.TextColor3 = CurrentTheme.TextPrimary
-            PickerLabel.TextSize = CONFIG.TextSize
-            PickerLabel.Parent = ColorPicker
-            
-            ColorPicker.MouseButton1Click:Connect(function()
-                -- Full picker logic (expand with HSV if needed)
-                local newColor = Color3.fromRGB(math.random(0,255), math.random(0,255), math.random(0,255))
-                ColorPicker.BackgroundColor3 = newColor
-                if callback then callback(newColor) end
-                if flag then config[flag] = newColor; saveConfig(config) end
-            end)
-            
-            local cpFuncs = {}
-            function cpFuncs:UpdateColorPicker(color)
-                ColorPicker.BackgroundColor3 = color
-                if callback then callback(color) end
-                if flag then config[flag] = color; saveConfig(config) end
-            end
-            
-            return cpFuncs
-        end
-        
-        return tabElements
+        self.Y = self.Y + 48
+        return self
     end
-    
-    -- Theme switcher
-    function window:SetTheme(themeName)
-        if Themes[themeName] then
-            CurrentTheme = Themes[themeName]
-            -- Update all UI elements (simplified - add more in real use)
-            MainFrame.BackgroundColor3 = CurrentTheme.BgPrimary
-            TitleBar.BackgroundColor3 = CurrentTheme.Accent
-            TitleLabel.TextColor3 = CurrentTheme.NeonColor
-            reopenIcon.BackgroundColor3 = CurrentTheme.NeonColor
+
+    function t:Sl(id, c)
+        local row = Instance.new("Frame", p)
+        row.Size = UDim2.new(1, -8, 0, 56); row.Position = UDim2.fromOffset(4, self.Y)
+        row.BackgroundColor3 = COL.cardB
+        row.BorderSizePixel = 0; row.ZIndex = 14
+        addStroke(row, 2)
+        addShadow(p, row.Size, row.Position)
+
+        local l2 = Instance.new("TextLabel", row)
+        l2.Size = UDim2.new(1, -80, 0, 18); l2.Position = UDim2.fromOffset(14, 9)
+        l2.BackgroundTransparency = 1; l2.Text = c.Title or id
+        l2.TextColor3 = COL.tx; l2.Font = Enum.Font.GothamBold; l2.TextSize = 12
+        l2.TextXAlignment = Enum.TextXAlignment.Left; l2.ZIndex = 15
+
+        local vL = Instance.new("TextLabel", row)
+        vL.Size = UDim2.fromOffset(56, 18); vL.Position = UDim2.new(1, -70, 0, 9)
+        vL.BackgroundTransparency = 1; vL.Text = tostring(c.Default or c.Min or 0)
+        vL.TextColor3 = COL.brd; vL.Font = Enum.Font.GothamBlack; vL.TextSize = 12
+        vL.TextXAlignment = Enum.TextXAlignment.Right; vL.ZIndex = 15
+
+        local tr = Instance.new("Frame", row)
+        tr.Size = UDim2.new(1, -28, 0, 8); tr.Position = UDim2.new(0, 14, 1, -18)
+        tr.BackgroundColor3 = COL.off
+        tr.BorderSizePixel = 0; tr.ZIndex = 15
+        addStroke(tr, 2)
+
+        local mn, mx = c.Min or 0, c.Max or 100
+        local pct = ((c.Default or mn) - mn) / (mx - mn)
+
+        local f = Instance.new("Frame", tr)
+        f.Size = UDim2.new(pct, 0, 1, 0)
+        f.BackgroundColor3 = COL.pink
+        f.BorderSizePixel = 0; f.ZIndex = 16
+
+        local k = Instance.new("Frame", tr)
+        k.Size = UDim2.fromOffset(16, 16); k.Position = UDim2.new(pct, -8, 0.5, -8)
+        k.BackgroundColor3 = COL.bg
+        k.BorderSizePixel = 0; k.ZIndex = 17
+        addStroke(k, 2)
+
+        local dg = false
+        local function upd(x)
+            local a = math.clamp((x - tr.AbsolutePosition.X) / tr.AbsoluteSize.X, 0, 1)
+            local v = math.floor(mn + (mx - mn) * a + 0.5)
+            f.Size = UDim2.new(a, 0, 1, 0); k.Position = UDim2.new(a, -8, 0.5, -8)
+            vL.Text = tostring(v)
+            if c.Callback then pcall(c.Callback, v) end
         end
+        local hb = Instance.new("TextButton", row)
+        hb.Size = UDim2.new(1, -20, 0, 26); hb.Position = UDim2.new(0, 10, 1, -30)
+        hb.BackgroundTransparency = 1; hb.Text = ""; hb.ZIndex = 18
+        hb.InputBegan:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                dg = true; upd(i.Position.X)
+            end
+        end)
+        UIS.InputChanged:Connect(function(i)
+            if dg and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then upd(i.Position.X) end
+        end)
+        UIS.InputEnded:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dg = false end
+        end)
+        self.Y = self.Y + 62
+        return self
     end
-    
-    -- Notify
-    function window:Notify(text, duration)
-        duration = duration or 3
-        local Notify = Instance.new("Frame")
-        Notify.Size = UDim2.new(0, 300, 0, 60)
-        Notify.Position = UDim2.new(1, -320, 0, 20)
-        Notify.BackgroundColor3 = CurrentTheme.BgPrimary
-        Notify.Parent = ScreenGui
-        
-        local nCorner = Instance.new("UICorner")
-        nCorner.CornerRadius = UDim.new(0, 10)
-        nCorner.Parent = Notify
-        
-        local nStroke = Instance.new("UIStroke")
-        nStroke.Color = CurrentTheme.NeonColor
-        nStroke.Thickness = 2
-        nStroke.Parent = Notify
-        
-        local nLabel = Instance.new("TextLabel")
-        nLabel.Size = UDim2.new(1, -20, 1, 0)
-        nLabel.Position = UDim2.new(0, 10, 0, 0)
-        nLabel.BackgroundTransparency = 1
-        nLabel.Text = text
-        nLabel.TextColor3 = CurrentTheme.TextPrimary
-        nLabel.TextSize = 16
-        nLabel.Font = Enum.Font.Gotham
-        nLabel.TextWrapped = true
-        nLabel.Parent = Notify
-        
-        TweenService:Create(Notify, TweenInfo.new(0.4), {Position = UDim2.new(1, -320, 0, 20)}):Play()
-        task.wait(duration)
-        TweenService:Create(Notify, TweenInfo.new(0.4), {Position = UDim2.new(1, 0, 0, 20)}):Play()
-        task.wait(0.4)
-        Notify:Destroy()
+
+    function t:Drop(id, c)
+        local row = Instance.new("Frame", p)
+        row.Size = UDim2.new(1, -8, 0, 42); row.Position = UDim2.fromOffset(4, self.Y)
+        row.BackgroundColor3 = COL.cardB
+        row.BorderSizePixel = 0; row.ZIndex = 14
+        addStroke(row, 2)
+        addShadow(p, row.Size, row.Position)
+
+        local l2 = Instance.new("TextLabel", row)
+        l2.Size = UDim2.new(1, -140, 1, 0); l2.Position = UDim2.fromOffset(14, 0)
+        l2.BackgroundTransparency = 1; l2.Text = c.Title or id
+        l2.TextColor3 = COL.tx; l2.Font = Enum.Font.GothamBold; l2.TextSize = 12
+        l2.TextXAlignment = Enum.TextXAlignment.Left; l2.ZIndex = 15
+
+        local vs = c.Values or {}
+        local cur = c.Default or vs[1] or "?"
+        local vL = Instance.new("TextLabel", row)
+        vL.Size = UDim2.new(0, 110, 1, 0); vL.Position = UDim2.new(1, -122, 0, 0)
+        vL.BackgroundTransparency = 1; vL.Text = cur
+        vL.TextColor3 = COL.brd; vL.Font = Enum.Font.GothamBlack; vL.TextSize = 11
+        vL.TextXAlignment = Enum.TextXAlignment.Right; vL.ZIndex = 15
+
+        local btn = Instance.new("TextButton", row)
+        btn.Size = UDim2.new(1, 0, 1, 0); btn.BackgroundTransparency = 1; btn.Text = ""; btn.ZIndex = 16
+
+        local hd = Instance.new("Frame", p)
+        hd.Size = UDim2.new(1, -8, 0, 0); hd.Position = UDim2.fromOffset(4, self.Y + 46)
+        hd.BackgroundColor3 = COL.side
+        hd.BorderSizePixel = 0; hd.ClipsDescendants = true; hd.Visible = false; hd.ZIndex = 20
+        addStroke(hd, 2)
+
+        for i, v in ipairs(vs) do
+            local opt = Instance.new("TextButton", hd)
+            opt.Size = UDim2.new(1, -8, 0, 28); opt.Position = UDim2.fromOffset(4, (i - 1) * 30 + 4)
+            opt.BackgroundColor3 = COL.side
+            opt.BorderSizePixel = 0; opt.Text = ""; opt.AutoButtonColor = false; opt.ZIndex = 22
+            addStroke(opt, 2)
+            
+            local oL = Instance.new("TextLabel", opt)
+            oL.Size = UDim2.new(1, -16, 1, 0); oL.Position = UDim2.fromOffset(12, 0)
+            oL.BackgroundTransparency = 1; oL.Text = v
+            oL.TextColor3 = COL.tx; oL.Font = Enum.Font.GothamBold; oL.TextSize = 11
+            oL.TextXAlignment = Enum.TextXAlignment.Left; oL.ZIndex = 23
+            opt.MouseButton1Click:Connect(function()
+                cur = v; vL.Text = v
+                TS:Create(hd, TweenInfo.new(0.15), {Size = UDim2.new(1, -8, 0, 0)}):Play()
+                task.delay(0.15, function() hd.Visible = false end)
+                if c.Callback then pcall(c.Callback, v) end
+            end)
+        end
+
+        local hH = math.min(#vs * 30 + 8, 150)
+        btn.MouseButton1Click:Connect(function()
+            if hd.Visible then
+                TS:Create(hd, TweenInfo.new(0.15), {Size = UDim2.new(1, -8, 0, 0)}):Play()
+                task.delay(0.15, function() hd.Visible = false end)
+            else
+                hd.Visible = true
+                TS:Create(hd, TweenInfo.new(0.15), {Size = UDim2.new(1, -8, 0, hH)}):Play()
+            end
+        end)
+        self.Y = self.Y + 48
+        return self
     end
-    
-    return window
+
+    self.T[n] = t
+    self.TB[n] = b
+    SideL.CanvasSize = UDim2.new(0, 0, 0, self.Cnt * 38 + 8)
+    if not self.Cur then self:Show(n) end
+    return t
 end
 
-_G.KZ_Velvet = nionvibes
+-- TABS
+local TInfo = W:AddTab({Title = "Info"})
+local TSurv = W:AddTab({Title = "Survivor"})
+local TKil  = W:AddTab({Title = "Killer"})
+local TEsp  = W:AddTab({Title = "ESP"})
+local TMisc = W:AddTab({Title = "Misc"})
 
--- ============================================================
--- BUILD UI
--- ============================================================
-local S = _G.KZ
-if not S then return end
+TInfo:Banner({Image = IMG})
+TInfo:Sec("KALZZ HUB")
+TInfo:Btn({Title = "Copy Discord Invite", Callback = function()
+    pcall(function() if setclipboard then setclipboard("https://"..INVITE) end end)
+end})
+TInfo:Btn({Title = "Print Remote Cache", Callback = function()
+    print("[KZ] ToF:", RC.tof, "| Veil:", RC.veil, "| Parry:", RC.parry, "| FV:", RC.fastvault)
+end})
+TInfo:Btn({Title = "Print Aim State", Callback = function()
+    print("[KZ] ToFAimDir:", _G.KZ_ToFAimDir)
+    print("[KZ] VeilLook:", _G.KZ_VeilState.lookVector)
+    print("[KZ] Role:", isLocalKiller() and "Killer" or "Survivor")
+end})
 
-local CFG = S.CFG
-local save = _G.KZ_SaveCfg or function() end
+TSurv:Sec("Silent Aim (ToF)")
+TSurv:Tog("tof_on", {Title = "Enable ToF", Default = CFG.tof_on, Callback = function(v) CFG.tof_on = v end})
+TSurv:Tog("tof_show_fov", {Title = "Show FOV Circle", Default = CFG.tof_show_fov, Callback = function(v) CFG.tof_show_fov = v end})
+TSurv:Sl("tof_fov", {Title = "FOV", Min = 1, Max = 600, Default = CFG.tof_fov, Callback = function(v) CFG.tof_fov = v end})
+TSurv:Sl("tof_predict", {Title = "Predict x10", Min = 10, Max = 50, Default = math.floor(CFG.tof_predict * 10), Callback = function(v) CFG.tof_predict = v / 10 end})
+TSurv:Sl("tof_maxdist", {Title = "Max Distance", Min = 100, Max = 3000, Default = CFG.tof_maxdist, Callback = function(v) CFG.tof_maxdist = v end})
 
-local function Tog(sec, id, text, key)
-    sec:AddToggle(id, { Text = text, Default = CFG[key],
-        Callback = function(v) CFG[key] = v; save() end })
+TSurv:Sec("Auto Generator")
+TSurv:Tog("gene_on", {Title = "Enable Auto Gen", Default = CFG.gene_on, Callback = function(v) CFG.gene_on = v end})
+TSurv:Drop("gene_method", {Title = "Method", Values = {"SUCCESS", "NEUTRAL", "INSTANT"}, Default = CFG.gene_method, Callback = function(v) CFG.gene_method = v end})
+
+TSurv:Sec("Auto Parry")
+TSurv:Tog("parry_on", {Title = "Enable Parry", Default = CFG.parry_on, Callback = function(v) CFG.parry_on = v end})
+TSurv:Tog("parry_show_circle", {Title = "Show Parry Circle", Default = CFG.parry_show_circle, Callback = function(v) CFG.parry_show_circle = v end})
+TSurv:Sl("parry_radius", {Title = "Radius", Min = 1, Max = 30, Default = CFG.parry_radius, Callback = function(v) CFG.parry_radius = v end})
+TSurv:Sl("parry_sensitive", {Title = "Sensitive", Min = 0, Max = 500, Default = CFG.parry_sensitive, Callback = function(v) CFG.parry_sensitive = v end})
+TSurv:Tog("parry_aggro", {Title = "Aggressive", Default = CFG.parry_aggro, Callback = function(v) CFG.parry_aggro = v end})
+
+TSurv:Sec("Movement")
+TSurv:Tog("fast_vault", {Title = "Fast Vault", Default = CFG.fast_vault, Callback = function(v) CFG.fast_vault = v end})
+
+TKil:Sec("Silent Aim (Veil)")
+TKil:Tog("veil_on", {Title = "Enable Veil", Default = CFG.veil_on, Callback = function(v) CFG.veil_on = v end})
+TKil:Tog("veil_show_fov", {Title = "Show FOV Circle", Default = CFG.veil_show_fov, Callback = function(v) CFG.veil_show_fov = v end})
+TKil:Sl("veil_fov", {Title = "FOV", Min = 1, Max = 600, Default = CFG.veil_fov, Callback = function(v) CFG.veil_fov = v end})
+TKil:Sl("veil_predict", {Title = "Predict x10", Min = 10, Max = 50, Default = math.floor(CFG.veil_predict * 10), Callback = function(v) CFG.veil_predict = v / 10 end})
+TKil:Sl("veil_maxdist", {Title = "Max Distance", Min = 100, Max = 3000, Default = CFG.veil_maxdist, Callback = function(v) CFG.veil_maxdist = v end})
+
+TEsp:Sec("Player ESP")
+TEsp:Tog("esp_k", {Title = "Killer ESP", Default = CFG.esp_k, Callback = function(v) CFG.esp_k = v end})
+TEsp:Tog("esp_s", {Title = "Survivor ESP", Default = CFG.esp_s, Callback = function(v) CFG.esp_s = v end})
+TEsp:Tog("esp_item", {Title = "Show Item Name", Default = CFG.esp_item, Callback = function(v) CFG.esp_item = v end})
+
+TEsp:Sec("Generator ESP")
+TEsp:Tog("esp_g", {Title = "Generator ESP", Default = CFG.esp_g, Callback = function(v) CFG.esp_g = v end})
+TEsp:Tog("esp_gen_txt", {Title = "Show Progress Text", Default = CFG.esp_gen_txt, Callback = function(v) CFG.esp_gen_txt = v end})
+
+TEsp:Sec("Style")
+TEsp:Tog("esp_out", {Title = "Outline Only", Default = CFG.esp_out, Callback = function(v) CFG.esp_out = v end})
+
+TMisc:Sec("Vision")
+TMisc:Tog("fov_lock", {Title = "FOV Lock", Default = CFG.fov_lock, Callback = function(v) CFG.fov_lock = v end})
+TMisc:Sl("fov_value", {Title = "FOV Value", Min = 60, Max = 140, Default = CFG.fov_value, Callback = function(v) CFG.fov_value = v end})
+TMisc:Tog("ambient", {Title = "Bright Ambient", Default = CFG.ambient, Callback = function(v) CFG.ambient = v end})
+TMisc:Tog("boost_fps", {Title = "Boost FPS", Default = CFG.boost_fps, Callback = function(v)
+    CFG.boost_fps = v
+    pcall(function() if v then setfpscap(240) else setfpscap(0) end end)
+end})
+
+TMisc:Sec("Alerts")
+TMisc:Tog("alert", {Title = "Proximity Alert", Default = CFG.alert, Callback = function(v) CFG.alert = v end})
+
+TMisc:Sec("UI")
+TMisc:Btn({Title = "Hide UI (Float Mode)", Callback = function()
+    if _G.KZ_ToggleUI then _G.KZ_ToggleUI() end
+end})
+
+W:Show("Info")
+
+-- FLOAT BUTTON
+pcall(function()
+    local FG = Instance.new("ScreenGui")
+    FG.Name = "KZ_Float_"..tostring(os.time())
+    FG.ResetOnSpawn = false
+    FG.IgnoreGuiInset = true
+    FG.DisplayOrder = 2147483647
+    pcall(function() FG.Parent = getParentTarget() end)
+    if not FG.Parent then FG.Parent = PG end
+
+    local FB = Instance.new("TextButton", FG)
+    FB.Size = UDim2.fromOffset(70, 70)
+    FB.Position = UDim2.new(0, 20, 0.5, -35)
+    FB.BackgroundColor3 = COL.bg
+    FB.Text = "KZ"
+    FB.TextColor3 = COL.brd
+    FB.Font = Enum.Font.GothamBlack
+    FB.TextSize = 32
+    FB.AutoButtonColor = false
+    FB.Active = true
+    FB.Visible = false
+    FB.ZIndex = 2147483647
+    addStroke(FB, 3)
+
+    local fShadow = Instance.new("Frame", FG)
+    fShadow.Size = UDim2.fromOffset(70, 70)
+    fShadow.Position = UDim2.new(0, 25, 0.5, -30)
+    fShadow.BackgroundColor3 = COL.brd
+    fShadow.BorderSizePixel = 0
+    fShadow.ZIndex = 2147483646
+    fShadow.Visible = false
+
+    _G.KZ_FloatButton = FB
+    local fD, fStart, fPos, fMoved = false, nil, nil, false
+    FB.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            fD = true; fMoved = false; fStart = i.Position; fPos = FB.Position
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if fD and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            local d = i.Position - fStart
+            if d.Magnitude > 8 then
+                fMoved = true
+                FB.Position = UDim2.new(fPos.X.Scale, fPos.X.Offset + d.X, fPos.Y.Scale, fPos.Y.Offset + d.Y)
+                fShadow.Position = FB.Position + UDim2.fromOffset(5, 5)
+            end
+        end
+    end)
+    UIS.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            if fD and not fMoved then
+                if _G.KZ_ToggleUI then _G.KZ_ToggleUI() end
+            end
+            fD = false
+            task.delay(0.1, function() fMoved = false end)
+        end
+    end)
+
+    _G.KZ_ShowFloat = function(state) 
+        FB.Visible = state 
+        fShadow.Visible = state
+    end
+end)
+
+_G.KZ_ToggleUI = function()
+    if Main.Visible then
+        Main.Visible = false
+        if _G.KZ_ShowFloat then _G.KZ_ShowFloat(true) end
+    else
+        Main.Visible = true
+        if _G.KZ_ShowFloat then _G.KZ_ShowFloat(false) end
+    end
 end
-local function Slider(sec, id, text, key, min, max, default, inc)
-    sec:AddSlider(id, { Text = text, Min = min, Max = max,
-        Default = default or CFG[key], Increment = inc or 1,
-        Callback = function(v) CFG[key] = v; save() end })
-end
-local function Drop(sec, id, text, key, values)
-    sec:AddDropdown(id, { Text = text, Values = values, Default = CFG[key],
-        Callback = function(v) CFG[key] = v; save() end })
-end
 
-local Window = Velvet:CreateWindow({
-    Title = "KALZZ HUB",
-    SubTitle = S.INVITE,
-    Width = 580, Height = 460,
-    ToggleKey = Enum.KeyCode.RightShift,
-})
-
--- INFO
-local tInfo = Window:AddTab("Info", "home")
-local sInfo = tInfo:AddSection("Kalzz Hub")
-sInfo:AddParagraph({ Title = "KALZZ HUB", Content = "Velvet UI • " .. S.INVITE })
-sInfo:AddButton({ Text = "Copy Discord Invite", Callback = function()
-    pcall(function() if setclipboard then setclipboard("https://" .. S.INVITE) end end)
-    Velvet:Notify({Title="Copied", Content="Invite tersalin!", Duration=2, Type="success"})
-end })
-sInfo:AddButton({ Text = "Save Config Now", Callback = function()
-    save()
-    Velvet:Notify({Title="Saved", Content="Config tersimpan.", Duration=2, Type="success"})
-end })
-
--- SURVIVOR
-local tSurv = Window:AddTab("Survivor", "user")
-local sToF = tSurv:AddSection("Silent Aim ToF")
-Tog(sToF, "tof_on", "Enable ToF", "tof_on")
-Tog(sToF, "tof_show_fov", "Show FOV Circle", "tof_show_fov")
-Tog(sToF, "tof_laser", "Show Laser", "tof_laser")
-Slider(sToF, "tof_fov", "FOV", "tof_fov", 1, 800, CFG.tof_fov, 1)
-Slider(sToF, "tof_predict", "Predict x10", "tof_predict", 10, 50, math.floor(CFG.tof_predict*10), 1)
-Slider(sToF, "tof_maxdist", "Max Distance", "tof_maxdist", 100, 2000, CFG.tof_maxdist, 50)
-
-local sParry = tSurv:AddSection("Auto Parry")
-Tog(sParry, "parry_on", "Enable Parry", "parry_on")
-Tog(sParry, "parry_antifake", "Anti Fake", "parry_antifake")
-Tog(sParry, "parry_show_circle", "Show Circle", "parry_show_circle")
-Slider(sParry, "parry_radius", "Sensitiv", "parry_radius", 1, 50, CFG.parry_radius, 1)
-
-_G.KZ_Velvet = NeonVibes -- Perbaikan typo: nionvibes -> NeonVibes
-
--- ============================================================
--- BUILD UI MENGGUNAKAN NEONVIBES (Fungsi yang kamu buat di atas)
--- ============================================================
-local S = _G.KZ
-if not S then return end
-
-local CFG = S.CFG
-local save = _G.KZ_SaveCfg or function() end
-
--- Buat Window (NeonVibes pakai parameter string langsung, bukan table)
-local Window = NeonVibes:CreateWindow("KALZZ HUB")
-
--- 1. TAB INFO
-local tInfo = Window:CreateTab("Info")
-tInfo:Label("=== KALZZ HUB ===")
-tInfo:Label("Velvet UI • " .. S.INVITE) -- Pakai Label sebagai pengganti AddParagraph
-tInfo:Button("Copy Discord Invite", function()
-    pcall(function() if setclipboard then setclipboard("https://" .. S.INVITE) end end)
-    Window:Notify("Invite tersalin!", 2) -- Pakai Window:Notify
+MinBtn.MouseButton1Click:Connect(function()
+    Main.Visible = false
+    if _G.KZ_ShowFloat then _G.KZ_ShowFloat(true) end
 end)
-tInfo:Button("Save Config Now", function()
-    save()
-    Window:Notify("Config tersimpan.", 2)
+ClsBtn.MouseButton1Click:Connect(function()
+    Main.Visible = false
+    if _G.KZ_ShowFloat then _G.KZ_ShowFloat(true) end
 end)
 
--- 2. TAB SURVIVOR
-local tSurv = Window:CreateTab("Survivor")
-tSurv:Label("--- Silent Aim ToF ---")
-tSurv:Toggle("Enable ToF", CFG.tof_on, function(v) CFG.tof_on = v; save() end, "tof_on")
-tSurv:Toggle("Show FOV Circle", CFG.tof_show_fov, function(v) CFG.tof_show_fov = v; save() end, "tof_show_fov")
-tSurv:Toggle("Show Laser", CFG.tof_laser, function(v) CFG.tof_laser = v; save() end, "tof_laser")
-tSurv:Slider("FOV", 1, 800, CFG.tof_fov, function(v) CFG.tof_fov = v; save() end, "tof_fov")
-tSurv:Slider("Predict x10", 10, 50, math.floor(CFG.tof_predict*10), function(v) CFG.tof_predict = v/10; save() end, "tof_predict")
-tSurv:Slider("Max Distance", 100, 2000, CFG.tof_maxdist, function(v) CFG.tof_maxdist = v; save() end, "tof_maxdist")
-
-tSurv:Label("--- Auto Parry ---")
-tSurv:Toggle("Enable Parry", CFG.parry_on, function(v) CFG.parry_on = v; save() end, "parry_on")
-tSurv:Toggle("Anti Fake", CFG.parry_antifake, function(v) CFG.parry_antifake = v; save() end, "parry_antifake")
-tSurv:Toggle("Show Circle", CFG.parry_show_circle, function(v) CFG.parry_show_circle = v; save() end, "parry_show_circle")
-tSurv:Slider("Sensitiv", 1, 50, CFG.parry_radius, function(v) CFG.parry_radius = v; save() end, "parry_radius")
-
-tSurv:Label("--- Auto Crouch ---")
-tSurv:Toggle("Enable Auto Crouch", CFG.crouch_on, function(v) CFG.crouch_on = v; save() end, "crouch_on")
-
-tSurv:Label("--- Auto Generator ---")
-tSurv:Toggle("Enable Auto Gen", CFG.gene_on, function(v) CFG.gene_on = v; save() end, "gene_on")
--- Format Dropdown NeonVibes: (text, buttons, callback, selective, flag)
-tSurv:Dropdown("Method", {"SUCCESS","NEUTRAL","INSTANT"}, function(v) CFG.gene_method = v; save() end, true, "gene_method")
-
-tSurv:Label("--- Movement ---")
-tSurv:Toggle("Fast Vault", CFG.fast_vault, function(v) CFG.fast_vault = v; save() end, "fast_vault")
-
--- 3. TAB KILLER
-local tKill = Window:CreateTab("Killer")
-tKill:Label("--- Silent Aim Veil ---")
-tKill:Toggle("Enable Veil", CFG.veil_on, function(v) CFG.veil_on = v; save() end, "veil_on")
-tKill:Toggle("Show FOV Circle", CFG.veil_show_fov, function(v) CFG.veil_show_fov = v; save() end, "veil_show_fov")
-tKill:Slider("FOV", 1, 800, CFG.veil_fov, function(v) CFG.veil_fov = v; save() end, "veil_fov")
-tKill:Slider("Predict x10", 10, 50, math.floor(CFG.veil_predict*10), function(v) CFG.veil_predict = v/10; save() end, "veil_predict")
-tKill:Slider("Max Distance", 100, 3000, CFG.veil_maxdist, function(v) CFG.veil_maxdist = v; save() end, "veil_maxdist")
-
--- 4. TAB ESP
-local tEsp = Window:CreateTab("ESP")
-tEsp:Label("--- Player ESP ---")
-tEsp:Toggle("Killer ESP", CFG.esp_k, function(v) CFG.esp_k = v; save() end, "esp_k")
-tEsp:Toggle("Survivor ESP", CFG.esp_s, function(v) CFG.esp_s = v; save() end, "esp_s")
-tEsp:Toggle("Show Item Name", CFG.esp_item, function(v) CFG.esp_item = v; save() end, "esp_item")
-
-tEsp:Label("--- Generator ESP ---")
-tEsp:Toggle("Generator ESP", CFG.esp_g, function(v) CFG.esp_g = v; save() end, "esp_g")
-tEsp:Toggle("Show Progress", CFG.esp_gen_txt, function(v) CFG.esp_gen_txt = v; save() end, "esp_gen_txt")
-
-tEsp:Label("--- Style ---")
-tEsp:Toggle("Outline Only", CFG.esp_out, function(v) CFG.esp_out = v; save() end, "esp_out")
-
--- 5. TAB MISC
-local tMisc = Window:CreateTab("Misc")
-tMisc:Label("--- Vision ---")
-tMisc:Toggle("FOV Lock", CFG.fov_lock, function(v) CFG.fov_lock = v; save() end, "fov_lock")
-tMisc:Slider("FOV Value", 60, 140, CFG.fov_value, function(v) CFG.fov_value = v; save() end, "fov_value")
-tMisc:Toggle("Bright Ambient", CFG.ambient, function(v) CFG.ambient = v; save() end, "ambient")
-tMisc:Toggle("Boost FPS", CFG.boost_fps, function(v) CFG.boost_fps = v; save() end, "boost_fps")
-
-tMisc:Label("--- Alerts ---")
-tMisc:Toggle("Proximity Alert", CFG.alert, function(v) CFG.alert = v; save() end, "alert")
-tMisc:Toggle("Stun Killer Notif", CFG.stun_on, function(v) CFG.stun_on = v; save() end, "stun_on")
-
-tMisc:Label("--- UI ---")
-tMisc:Button("Notify: Test", function()
-    Window:Notify("Notif test aktif!", 3)
+task.spawn(function()
+    while true do
+        task.wait(2)
+        if not GUI.Parent then
+            pcall(function() GUI.Parent = getParentTarget() end)
+            if not GUI.Parent then GUI.Parent = PG end
+        end
+        if not GUI.Enabled then GUI.Enabled = true end
+        if Main and not Main.Parent then Main.Parent = GUI end
+    end
 end)
 
--- Catatan: Fungsi CreateWatermark dihapus karena tidak ada di NeonVibes
-
-task.delay(0.5, function()
-    Window:Notify("Loaded. Config auto-load + auto-save aktif.", 4)
+UIS.InputBegan:Connect(function(i, g)
+    if g then return end
+    if i.KeyCode == Enum.KeyCode.V then CFG.tof_on = not CFG.tof_on end
+    if i.KeyCode == Enum.KeyCode.B then CFG.veil_on = not CFG.veil_on end
+    if i.KeyCode == Enum.KeyCode.P then
+        if _G.KZ_ManualParry then _G.KZ_ManualParry() end
+    end
+    if i.KeyCode == Enum.KeyCode.RightShift then
+        if _G.KZ_ToggleUI then _G.KZ_ToggleUI() end
+    end
 end)
 
-print("[KZ] ui loaded")
+print("[KALZZ HUB V5] - UI Neo-Brutalism Loaded")
