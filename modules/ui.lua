@@ -1,7 +1,7 @@
 -- ============================================================
--- UI HUB (NEO-BRUTALISM STYLE ONLY) - FULL FIXED
+-- UI HUB (NEO-BRUTALISM STYLE ONLY) - FULL LENGKAP
 -- ============================================================
-local UIS = game:GetService("UserInputService")
+local UIS = game:GetService("UserInputService") -- INI YANG BIKIN ERROR TADI, JANGAN DIHAPUS
 local TS = game:GetService("TweenService")
 local PG = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
 
@@ -591,6 +591,7 @@ task.spawn(function()
         end
         if not GUI.Enabled then GUI.Enabled = true end
         if Main and not Main.Parent then Main.Parent = GUI end
+        -- FIX BUG FULLSCREEN: Paksa ukuran balik ke 580x480 tiap 2 detik
         if Main and Main.Size ~= UDim2.new(0, 580, 0, 480) then
             Main.Size = UDim2.new(0, 580, 0, 480)
         end
