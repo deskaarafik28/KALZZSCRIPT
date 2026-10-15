@@ -38,15 +38,27 @@ pcall(function()
     V.TrackerLine = Drawing.new("Line"); V.TrackerLine.Color=ACCENT; V.TrackerLine.Thickness=1.5; V.TrackerLine.Transparency=0.6; V.TrackerLine.Visible=false
 end)
 
-local function solvePitch(p, d, dy)
-    d = math.max(d, 0.1)
-    local s2 = p.v0 * p.v0
-    local root = s2 * s2 - p.g * (p.g * d * d + 2 * dy * s2)
+-- ─── Ballistic Solver (iterative, lebih akurat dekat & jauh) ───────────────
+local function solvePitchIterative(v0, g, flatDist, dy, iters)
+    iters = iters or 4
+    flatDist = math.max(flatDist, 0.1)
+    local s2 = v0 * v0
+    local root = s2*s2 - g*(g*flatDist*flatDist + 2*dy*s2)
     if root < 0 then root = 0 end
-    local tanTheta = (s2 - math.sqrt(root)) / (p.g * d)
+    local tanTheta = (s2 - math.sqrt(root)) / (g * flatDist)
     local theta = math.atan(tanTheta)
-    local t = d / (p.v0 * math.cos(theta))
-    return theta, t
+    -- iterative refinement buat akurasi lebih di range ekstrem
+    for _ = 1, iters do
+        local cosT = math.cos(theta)
+        if math.abs(cosT) < 1e-6 then break end
+        local t = flatDist / (v0 * cosT)
+        local predictedDY = v0*math.sin(theta)*t - 0.5*g*t*t
+        local err = dy - predictedDY
+        theta = theta + err * 0.1
+    end
+    local cosT = math.max(math.abs(math.cos(theta)), 1e-6)
+    local tFlight = flatDist / (v0 * cosT)
+    return theta, tFlight
 end
 
 local function getVel(char)
@@ -55,14 +67,14 @@ local function getVel(char)
     local now = os.clock()
     local last = VeilState.velHistory[char]
     local measured = Vector3.zero
-    if last and now - last.t > 0.02 then
+    if last and now - last.t > 0.016 then
         measured = (root.Position - last.pos) / (now - last.t)
         if measured.Magnitude > 150 then measured = last.smooth or Vector3.zero end
     end
     local smooth = last and last.smooth or measured
-    smooth = smooth:Lerp(measured, 0.65)
+    smooth = smooth:Lerp(measured, 0.7)
     VeilState.velHistory[char] = { pos=root.Position, t=now, smooth=smooth }
-    if smooth.Magnitude < 1 then return Vector3.zero end
+    if smooth.Magnitude < 0.5 then return Vector3.zero end
     return Vector3.new(smooth.X, 0, smooth.Z)
 end
 
@@ -70,6 +82,48 @@ S.Players.PlayerRemoving:Connect(function(p)
     if p.Character then VeilState.velHistory[p.Character] = nil end
 end)
 
+-- ─── Compute lookVector + aimPoint ────────────────────────────────────────
+local function computeLook(origin, targetPos, targetChar, prof)
+    local aimPoint = targetPos
+    if VD.VeilAutoPredict then
+        local vel = getVel(targetChar)
+        if vel.Magnitude > 0.3 then
+            local dir0 = targetPos - origin
+            local h0 = Vector3.new(dir0.X, 0, dir0.Z)
+            local _, tFlight = solvePitchIterative(prof.v0, prof.g, h0.Magnitude, dir0.Y)
+            local ping = 0.08
+            pcall(function() ping = math.clamp(LP:GetNetworkPing(), 0, 0.4) end)
+            local totalDelay = tFlight + prof.windup + ping + prof.latency
+
+            -- 3 iterasi prediksi buat konvergen
+            for _ = 1, 3 do
+                local lead = vel * totalDelay * prof.scale
+                local maxL = math.clamp((targetPos - origin).Magnitude * 0.55, 2, prof.maxlead)
+                if lead.Magnitude > maxL then lead = lead.Unit * maxL end
+                aimPoint = targetPos + lead
+                local ad = aimPoint - origin
+                local ah = Vector3.new(ad.X, 0, ad.Z)
+                local _, t2 = solvePitchIterative(prof.v0, prof.g, math.max(ah.Magnitude, 0.1), ad.Y)
+                totalDelay = t2 + prof.windup + ping + prof.latency
+            end
+        end
+    end
+
+    local adir = aimPoint - origin
+    local ah = Vector3.new(adir.X, 0, adir.Z)
+    local ahDist = ah.Magnitude
+    local pitch, _ = solvePitchIterative(prof.v0, prof.g, math.max(ahDist, 0.1), adir.Y)
+
+    local lv
+    if ahDist > 0.001 then
+        lv = ah.Unit * math.cos(pitch) + Vector3.new(0, math.sin(pitch), 0)
+    else
+        lv = adir.Unit
+    end
+    return lv, aimPoint
+end
+
+-- ─── Visuals ──────────────────────────────────────────────────────────────
 local function hideFOV()
     local V = VeilVisuals; local OFF = Vector2.new(-9999,-9999)
     if V.FOVOuterRing then V.FOVOuterRing.Visible=false; V.FOVOuterRing.Position=OFF; V.FOVOuterRing.Radius=0 end
@@ -125,6 +179,7 @@ local function updateTracker(pos, dist)
     V.TrackerDotOutline.Position=pos; V.TrackerDotOutline.Radius=5+pulse*1.5; V.TrackerDotOutline.Transparency=0.35; V.TrackerDotOutline.Visible=true
 end
 
+-- ─── Aimbot Loop ──────────────────────────────────────────────────────────
 local function updateAimbot()
     if not S.isLocalKiller() then
         VeilState.target=nil; VeilState.lookVector=nil; hideAll(); return
@@ -157,7 +212,9 @@ local function updateAimbot()
                         local sd = (Vector2.new(sp.X, sp.Y) - center).Magnitude
                         if sd < bestDist then
                             local studDist = (tpart.Position - hrp.Position).Magnitude
-                            if studDist <= bestStudDist then bestDist = sd; nearest = p; nearestPart = tpart end
+                            if studDist <= bestStudDist then
+                                bestDist = sd; nearest = p; nearestPart = tpart
+                            end
                         end
                     end
                 end
@@ -169,8 +226,8 @@ local function updateAimbot()
         local tp = nearestPart.Position
         local hand = char:FindFirstChild("Right Arm") or char:FindFirstChild("RightHand")
         local origin = (hand and hand:IsA("BasePart")) and hand.Position or hrp.Position
-        local dir = tp - origin
-        local dist = dir.Magnitude
+        local dist = (tp - origin).Magnitude
+
         if dist > 0.1 and dist <= (VD.VeilMaxDist or 2000) then
             local isAura = char:GetAttribute("special") == true
             local prof
@@ -179,37 +236,11 @@ local function updateAimbot()
             else
                 prof = { v0=VD.VeilSpearSpeed, g=VD.VeilGravity, windup=0.10, latency=0.04, maxlead=45, scale=VD.VeilLeadMultiplier }
             end
-            local aimPoint = tp
-            if VD.VeilAutoPredict then
-                local vel = getVel(nearest.Character)
-                if vel.Magnitude > 0.5 then
-                    local h0 = Vector3.new(dir.X, 0, dir.Z)
-                    local _, tFlight = solvePitch(prof, h0.Magnitude, dir.Y)
-                    local ping = 0.08
-                    pcall(function() ping = math.clamp(LP:GetNetworkPing(), 0, 0.35) end)
-                    local delay = tFlight + prof.windup + ping + prof.latency
-                    for _ = 1, 2 do
-                        local lead = vel * delay * prof.scale
-                        local maxLead = math.clamp(dist * 0.6, 3, prof.maxlead)
-                        if lead.Magnitude > maxLead then lead = lead.Unit * maxLead end
-                        aimPoint = tp + lead
-                        local ad = aimPoint - origin
-                        local ah = Vector3.new(ad.X, 0, ad.Z)
-                        local _, t2 = solvePitch(prof, math.max(ah.Magnitude, 0.1), ad.Y)
-                        delay = t2 + prof.windup + ping + prof.latency
-                    end
-                end
-            end
-            local adir = aimPoint - origin
-            local ah = Vector3.new(adir.X, 0, adir.Z)
-            local ahDist = ah.Magnitude
-            local pitch = solvePitch(prof, ahDist, adir.Y)
-            if ahDist > 0.001 then
-                VeilState.lookVector = ah.Unit * math.cos(pitch) + Vector3.new(0, math.sin(pitch), 0)
-            else
-                VeilState.lookVector = adir.Unit
-            end
+
+            local lv, _ = computeLook(origin, tp, nearest.Character, prof)
+            VeilState.lookVector = lv
             VeilState.target = nearest
+
             if VD.VeilShowTracker then
                 local sp, vis = cam:WorldToViewportPoint(tp)
                 if vis and sp.Z > 0 then
@@ -237,20 +268,58 @@ S.RSvc.Heartbeat:Connect(function()
     end
 end)
 
+-- ─── FireServer Hook – intercept SETIAP spear throw ──────────────────────
+-- Kalau ada multiple remote (misal variant nama beda), semua ke-hook.
+-- Recompute lookVector fresh on-fire biar timing paling akurat.
 if S.NewHook then
     S.NewHook(function(self, method, OLD, ...)
         if method ~= "FireServer" then return OLD(self, ...) end
         if not S.CFG.veil_on then return OLD(self, ...) end
         if not S.isLocalKiller() then return OLD(self, ...) end
+
         local sn = ""
         pcall(function() sn = tostring(self.Name or "") end)
-        if sn ~= "Spearthrow" then return OLD(self, ...) end
-        local dir = VeilState.lookVector
-        if typeof(dir) ~= "Vector3" then return OLD(self, ...) end
+
+        -- tangkep semua remote yang ngandung "spear" (case-insensitive)
+        if not sn:lower():find("spear") then return OLD(self, ...) end
+
+        local char = LP.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return OLD(self, ...) end
+
+        -- recompute fresh saat fire beneran
+        local freshLV = VeilState.lookVector
+        if VeilState.target and VeilState.target.Character then
+            local tc = VeilState.target.Character
+            local tpart = tc:FindFirstChild("UpperTorso") or tc:FindFirstChild("Torso") or tc:FindFirstChild("HumanoidRootPart")
+            if tpart then
+                local hand = char:FindFirstChild("Right Arm") or char:FindFirstChild("RightHand")
+                local origin = (hand and hand:IsA("BasePart")) and hand.Position or hrp.Position
+                local dist = (tpart.Position - origin).Magnitude
+                if dist > 0.1 and dist <= (VD.VeilMaxDist or 2000) then
+                    local isAura = char:GetAttribute("special") == true
+                    local prof
+                    if isAura then
+                        prof = { v0=VD.VeilAuraSpearSpeed, g=VD.VeilAuraSpearGravity, windup=0.0, latency=0.03, maxlead=25, scale=VD.VeilLeadMultiplier }
+                    else
+                        prof = { v0=VD.VeilSpearSpeed, g=VD.VeilGravity, windup=0.0, latency=0.03, maxlead=45, scale=VD.VeilLeadMultiplier }
+                    end
+                    -- windup=0 karena hook dipanggil tepat saat fire
+                    local lv, _ = computeLook(origin, tpart.Position, tc, prof)
+                    if typeof(lv) == "Vector3" then freshLV = lv end
+                end
+            end
+        end
+
+        if typeof(freshLV) ~= "Vector3" then return OLD(self, ...) end
+
         local args = table.pack(...)
-        if typeof(args[1]) == "Vector3" then args[1] = dir end
+        -- arg[1] biasanya direction Vector3
+        if typeof(args[1]) == "Vector3" then
+            args[1] = freshLV.Unit
+        end
         return OLD(self, table.unpack(args, 1, args.n))
     end)
 end
 
-print("[KZ] silent-aim-veil loaded")
+print("[KZ] silent-aim-veil loaded (hook v2 + iterative solver)")
