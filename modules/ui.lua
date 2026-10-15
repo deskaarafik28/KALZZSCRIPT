@@ -633,7 +633,7 @@ function NeonVibes:CreateWindow(name)
     return window
 end
 
-return NeonVibes
+_G.KZ_Velvet = nionvibes
 
 -- ============================================================
 -- BUILD UI
