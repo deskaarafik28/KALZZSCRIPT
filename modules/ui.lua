@@ -1,11 +1,11 @@
 -- ============================================================
--- MODULES/UI.LUA - NEO-BRUTALISM (LENGKAP)
+-- MODULES/UI.LUA - NEO-BRUTALISM (LENGKAP + KECILIN UI)
 -- ============================================================
 local UIS = game:GetService("UserInputService")
 local TS = game:GetService("TweenService")
 local PG = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
 
--- Ambil dari _G (di-set oleh main.lua / config.lua)
+-- Ambil dari _G (di-set oleh config.lua)
 local S = _G.KZ or {}
 local CFG = S.CFG or _G.KALZZ_CFG or {}
 local INVITE = S.INVITE or "discord.gg/dCYTep9cY"
@@ -44,6 +44,10 @@ GUI.Name = "KalzzHub_"..tostring(os.time())
 GUI.ResetOnSpawn = false; GUI.IgnoreGuiInset = true
 GUI.DisplayOrder = 999998; GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 GUI.Enabled = true; GUI.Parent = PG
+
+-- KECILIN UI (0.65 = 65% dari ukuran asli)
+local uiScale = Instance.new("UIScale", GUI)
+uiScale.Scale = 0.65
 
 local Main = Instance.new("Frame", GUI)
 Main.Name = "KZ_Main"; Main.Size = UDim2.new(0, 580, 0, 480)
@@ -406,6 +410,7 @@ local FG = Instance.new("ScreenGui")
 FG.Name = "KZ_Float_"..tostring(os.time())
 FG.ResetOnSpawn = false; FG.IgnoreGuiInset = true
 FG.DisplayOrder = 2147483647; FG.Parent = PG
+Instance.new("UIScale", FG).Scale = 0.65
 
 local FB = Instance.new("TextButton", FG)
 FB.Size = UDim2.fromOffset(70, 70); FB.Position = UDim2.new(0, 20, 0.5, -35)
@@ -477,5 +482,5 @@ UIS.InputBegan:Connect(function(i, g)
     if i.KeyCode == Enum.KeyCode.RightShift then if _G.KZ_ToggleUI then _G.KZ_ToggleUI() end end
 end)
 
-print("[KZ UI] Neo-Brutalism loaded - All features included")
+print("[KZ UI] Neo-Brutalism loaded (Scaled 0.65)")
 return true
