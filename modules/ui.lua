@@ -3643,7 +3643,7 @@ function Velvet:OnDestroy(fn)
     table.insert(self._onDestroy, fn)
 end
 
-return Velvet
+_G.KZ_Velvet = Velvet
 
 -- ============================================================
 -- BUILD UI
