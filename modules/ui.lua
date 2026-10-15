@@ -694,65 +694,104 @@ Tog(sParry, "parry_antifake", "Anti Fake", "parry_antifake")
 Tog(sParry, "parry_show_circle", "Show Circle", "parry_show_circle")
 Slider(sParry, "parry_radius", "Sensitiv", "parry_radius", 1, 50, CFG.parry_radius, 1)
 
-local sCrouch = tSurv:AddSection("Auto Crouch")
-Tog(sCrouch, "crouch_on", "Enable Auto Crouch", "crouch_on")
+_G.KZ_Velvet = NeonVibes -- Perbaikan typo: nionvibes -> NeonVibes
 
-local sGene = tSurv:AddSection("Auto Generator")
-Tog(sGene, "gene_on", "Enable Auto Gen", "gene_on")
-Drop(sGene, "gene_method", "Method", "gene_method", {"SUCCESS","NEUTRAL","INSTANT"})
+-- ============================================================
+-- BUILD UI MENGGUNAKAN NEONVIBES (Fungsi yang kamu buat di atas)
+-- ============================================================
+local S = _G.KZ
+if not S then return end
 
-local sMove = tSurv:AddSection("Movement")
-Tog(sMove, "fast_vault", "Fast Vault", "fast_vault")
+local CFG = S.CFG
+local save = _G.KZ_SaveCfg or function() end
 
--- KILLER
-local tKill = Window:AddTab("Killer", "sword")
-local sVeil = tKill:AddSection("Silent Aim Veil")
-Tog(sVeil, "veil_on", "Enable Veil", "veil_on")
-Tog(sVeil, "veil_show_fov", "Show FOV Circle", "veil_show_fov")
-Slider(sVeil, "veil_fov", "FOV", "veil_fov", 1, 800, CFG.veil_fov, 1)
-Slider(sVeil, "veil_predict", "Predict x10", "veil_predict", 10, 50, math.floor(CFG.veil_predict*10), 1)
-Slider(sVeil, "veil_maxdist", "Max Distance", "veil_maxdist", 100, 3000, CFG.veil_maxdist, 50)
+-- Buat Window (NeonVibes pakai parameter string langsung, bukan table)
+local Window = NeonVibes:CreateWindow("KALZZ HUB")
 
--- ESP
-local tEsp = Window:AddTab("ESP", "eye")
-local sEspP = tEsp:AddSection("Player ESP")
-Tog(sEspP, "esp_k", "Killer ESP", "esp_k")
-Tog(sEspP, "esp_s", "Survivor ESP", "esp_s")
-Tog(sEspP, "esp_item", "Show Item Name", "esp_item")
+-- 1. TAB INFO
+local tInfo = Window:CreateTab("Info")
+tInfo:Label("=== KALZZ HUB ===")
+tInfo:Label("Velvet UI • " .. S.INVITE) -- Pakai Label sebagai pengganti AddParagraph
+tInfo:Button("Copy Discord Invite", function()
+    pcall(function() if setclipboard then setclipboard("https://" .. S.INVITE) end end)
+    Window:Notify("Invite tersalin!", 2) -- Pakai Window:Notify
+end)
+tInfo:Button("Save Config Now", function()
+    save()
+    Window:Notify("Config tersimpan.", 2)
+end)
 
-local sEspG = tEsp:AddSection("Generator ESP")
-Tog(sEspG, "esp_g", "Generator ESP", "esp_g")
-Tog(sEspG, "esp_gen_txt", "Show Progress", "esp_gen_txt")
+-- 2. TAB SURVIVOR
+local tSurv = Window:CreateTab("Survivor")
+tSurv:Label("--- Silent Aim ToF ---")
+tSurv:Toggle("Enable ToF", CFG.tof_on, function(v) CFG.tof_on = v; save() end, "tof_on")
+tSurv:Toggle("Show FOV Circle", CFG.tof_show_fov, function(v) CFG.tof_show_fov = v; save() end, "tof_show_fov")
+tSurv:Toggle("Show Laser", CFG.tof_laser, function(v) CFG.tof_laser = v; save() end, "tof_laser")
+tSurv:Slider("FOV", 1, 800, CFG.tof_fov, function(v) CFG.tof_fov = v; save() end, "tof_fov")
+tSurv:Slider("Predict x10", 10, 50, math.floor(CFG.tof_predict*10), function(v) CFG.tof_predict = v/10; save() end, "tof_predict")
+tSurv:Slider("Max Distance", 100, 2000, CFG.tof_maxdist, function(v) CFG.tof_maxdist = v; save() end, "tof_maxdist")
 
-local sEspSty = tEsp:AddSection("Style")
-Tog(sEspSty, "esp_out", "Outline Only", "esp_out")
+tSurv:Label("--- Auto Parry ---")
+tSurv:Toggle("Enable Parry", CFG.parry_on, function(v) CFG.parry_on = v; save() end, "parry_on")
+tSurv:Toggle("Anti Fake", CFG.parry_antifake, function(v) CFG.parry_antifake = v; save() end, "parry_antifake")
+tSurv:Toggle("Show Circle", CFG.parry_show_circle, function(v) CFG.parry_show_circle = v; save() end, "parry_show_circle")
+tSurv:Slider("Sensitiv", 1, 50, CFG.parry_radius, function(v) CFG.parry_radius = v; save() end, "parry_radius")
 
--- MISC
-local tMisc = Window:AddTab("Misc", "settings")
-local sVis = tMisc:AddSection("Vision")
-Tog(sVis, "fov_lock", "FOV Lock", "fov_lock")
-Slider(sVis, "fov_value", "FOV Value", "fov_value", 60, 140, CFG.fov_value, 1)
-Tog(sVis, "ambient", "Bright Ambient", "ambient")
-Tog(sVis, "boost_fps", "Boost FPS", "boost_fps")
+tSurv:Label("--- Auto Crouch ---")
+tSurv:Toggle("Enable Auto Crouch", CFG.crouch_on, function(v) CFG.crouch_on = v; save() end, "crouch_on")
 
-local sAlert = tMisc:AddSection("Alerts")
-Tog(sAlert, "alert", "Proximity Alert", "alert")
-Tog(sAlert, "stun_on", "Stun Killer Notif", "stun_on")
+tSurv:Label("--- Auto Generator ---")
+tSurv:Toggle("Enable Auto Gen", CFG.gene_on, function(v) CFG.gene_on = v; save() end, "gene_on")
+-- Format Dropdown NeonVibes: (text, buttons, callback, selective, flag)
+tSurv:Dropdown("Method", {"SUCCESS","NEUTRAL","INSTANT"}, function(v) CFG.gene_method = v; save() end, true, "gene_method")
 
-local sUI = tMisc:AddSection("UI")
-sUI:AddButton({ Text = "Notify: Test", Callback = function()
-    Velvet:Notify({Title="KALZZ HUB", Content="Notif test aktif!", Duration=3, Type="success"})
-end })
+tSurv:Label("--- Movement ---")
+tSurv:Toggle("Fast Vault", CFG.fast_vault, function(v) CFG.fast_vault = v; save() end, "fast_vault")
 
-Velvet:CreateWatermark({ Text = "KALZZ | {fps} fps | {ping} ms" })
+-- 3. TAB KILLER
+local tKill = Window:CreateTab("Killer")
+tKill:Label("--- Silent Aim Veil ---")
+tKill:Toggle("Enable Veil", CFG.veil_on, function(v) CFG.veil_on = v; save() end, "veil_on")
+tKill:Toggle("Show FOV Circle", CFG.veil_show_fov, function(v) CFG.veil_show_fov = v; save() end, "veil_show_fov")
+tKill:Slider("FOV", 1, 800, CFG.veil_fov, function(v) CFG.veil_fov = v; save() end, "veil_fov")
+tKill:Slider("Predict x10", 10, 50, math.floor(CFG.veil_predict*10), function(v) CFG.veil_predict = v/10; save() end, "veil_predict")
+tKill:Slider("Max Distance", 100, 3000, CFG.veil_maxdist, function(v) CFG.veil_maxdist = v; save() end, "veil_maxdist")
+
+-- 4. TAB ESP
+local tEsp = Window:CreateTab("ESP")
+tEsp:Label("--- Player ESP ---")
+tEsp:Toggle("Killer ESP", CFG.esp_k, function(v) CFG.esp_k = v; save() end, "esp_k")
+tEsp:Toggle("Survivor ESP", CFG.esp_s, function(v) CFG.esp_s = v; save() end, "esp_s")
+tEsp:Toggle("Show Item Name", CFG.esp_item, function(v) CFG.esp_item = v; save() end, "esp_item")
+
+tEsp:Label("--- Generator ESP ---")
+tEsp:Toggle("Generator ESP", CFG.esp_g, function(v) CFG.esp_g = v; save() end, "esp_g")
+tEsp:Toggle("Show Progress", CFG.esp_gen_txt, function(v) CFG.esp_gen_txt = v; save() end, "esp_gen_txt")
+
+tEsp:Label("--- Style ---")
+tEsp:Toggle("Outline Only", CFG.esp_out, function(v) CFG.esp_out = v; save() end, "esp_out")
+
+-- 5. TAB MISC
+local tMisc = Window:CreateTab("Misc")
+tMisc:Label("--- Vision ---")
+tMisc:Toggle("FOV Lock", CFG.fov_lock, function(v) CFG.fov_lock = v; save() end, "fov_lock")
+tMisc:Slider("FOV Value", 60, 140, CFG.fov_value, function(v) CFG.fov_value = v; save() end, "fov_value")
+tMisc:Toggle("Bright Ambient", CFG.ambient, function(v) CFG.ambient = v; save() end, "ambient")
+tMisc:Toggle("Boost FPS", CFG.boost_fps, function(v) CFG.boost_fps = v; save() end, "boost_fps")
+
+tMisc:Label("--- Alerts ---")
+tMisc:Toggle("Proximity Alert", CFG.alert, function(v) CFG.alert = v; save() end, "alert")
+tMisc:Toggle("Stun Killer Notif", CFG.stun_on, function(v) CFG.stun_on = v; save() end, "stun_on")
+
+tMisc:Label("--- UI ---")
+tMisc:Button("Notify: Test", function()
+    Window:Notify("Notif test aktif!", 3)
+end)
+
+-- Catatan: Fungsi CreateWatermark dihapus karena tidak ada di NeonVibes
 
 task.delay(0.5, function()
-    Velvet:Notify({
-        Title = "KALZZ HUB",
-        Content = "Loaded. Config auto-load + auto-save aktif.",
-        Duration = 4,
-        Type = "info",
-    })
+    Window:Notify("Loaded. Config auto-load + auto-save aktif.", 4)
 end)
 
 print("[KZ] ui loaded")
