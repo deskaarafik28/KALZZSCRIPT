@@ -1,14 +1,11 @@
 --[[
     KALZZSCRIPT
     modules/config.lua - Auto Load + Auto Save
-    - Load dari kalzz_config.json
-    - Save tiap ada perubahan (via UI callback)
 ]]
 
 local HttpService = game:GetService("HttpService")
 local FILE = "kalzz_config.json"
 
--- Default config
 local DEFAULT = {
     tof_on = true,
     tof_fov = 320,
@@ -52,7 +49,6 @@ local DEFAULT = {
     gene_method = "SUCCESS",
 }
 
--- Load existing
 local CFG = {}
 if readfile and isfile then
     pcall(function()
@@ -70,12 +66,10 @@ if readfile and isfile then
     end)
 end
 
--- Fill dengan default yang belum ada
 for k, v in pairs(DEFAULT) do
     if CFG[k] == nil then CFG[k] = v end
 end
 
--- Save function
 local function save()
     if not writefile then return end
     pcall(function()
@@ -83,21 +77,15 @@ local function save()
     end)
 end
 
--- Expose ke _G
 _G.KALZZ_CFG = CFG
 _G.KZ_SaveCfg = save
 
--- Auto-save tiap 30s (backup safety)
+-- Auto-save tiap 30s
 task.spawn(function()
     while true do
         task.wait(30)
         save()
     end
-end)
-
--- Save saat game close / player leave
-game:BindToClose(function()
-    save()
 end)
 
 print("[KZ] config loaded (auto load + save)")
