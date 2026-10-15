@@ -1,21 +1,25 @@
 -- ============================================================
--- UI HUB (NEO-BRUTALISM STYLE ONLY)
+-- UI HUB (NEO-BRUTALISM STYLE ONLY) - V5 SIZE FIXED
 -- ============================================================
 local COL = {
-    bg = Color3.fromRGB(255, 230, 0),
-    panel = Color3.fromRGB(0, 0, 0),
-    side = Color3.fromRGB(255, 255, 255),
-    cardB = Color3.fromRGB(255, 255, 255),
-    tabOn = Color3.fromRGB(0, 255, 255),
-    brd = Color3.fromRGB(0, 0, 0),
-    tx = Color3.fromRGB(0, 0, 0),
-    txD = Color3.fromRGB(30, 30, 30),
-    txF = Color3.fromRGB(80, 80, 80),
-    off = Color3.fromRGB(200, 200, 200),
-    red = Color3.fromRGB(255, 50, 50),
-    cyan = Color3.fromRGB(0, 255, 255),
-    pink = Color3.fromRGB(255, 0, 255),
+    bg = Color3.fromRGB(255, 230, 0),       -- Kuning cerah
+    panel = Color3.fromRGB(0, 0, 0),        -- Hitam pekat
+    side = Color3.fromRGB(255, 255, 255),   -- Putih
+    cardB = Color3.fromRGB(255, 255, 255),  -- Putih untuk kartu
+    tabOn = Color3.fromRGB(0, 255, 255),    -- Cyan
+    brd = Color3.fromRGB(0, 0, 0),          -- Border hitam
+    tx = Color3.fromRGB(0, 0, 0),           -- Teks hitam
+    txD = Color3.fromRGB(30, 30, 30),       -- Teks abu tua
+    txF = Color3.fromRGB(80, 80, 80),       -- Teks abu
+    off = Color3.fromRGB(200, 200, 200),    -- Off state
+    red = Color3.fromRGB(255, 50, 50),      -- Merah
+    cyan = Color3.fromRGB(0, 255, 255),     -- Cyan aksen
+    pink = Color3.fromRGB(255, 0, 255),     -- Magenta aksen
 }
+
+-- Fallback jika variabel dari script utama tidak ada
+local INVITE = INVITE or "discord.gg/dCYTep9cY"
+local IMG = IMG or "rbxassetid://134442738689157"
 
 local function getParentTarget()
     if gethui then local ok, h = pcall(gethui); if ok and h then return h end end
@@ -30,13 +34,14 @@ local function addStroke(parent, thickness, color)
     return s
 end
 
-local function addShadow(parent, size, pos)
+local function addShadow(parent, size, pos, anchor)
     local sh = Instance.new("Frame", parent)
     sh.Size = size
-    sh.Position = pos + UDim2.new(0, 5, 0, 5)
+    sh.Position = pos + UDim2.new(0, 6, 0, 6)
+    sh.AnchorPoint = anchor or Vector2.new(0.5, 0.5)
     sh.BackgroundColor3 = COL.brd
     sh.BorderSizePixel = 0
-    sh.ZIndex = (parent.ZIndex or 1) - 1
+    sh.ZIndex = 1
     return sh
 end
 
@@ -51,16 +56,17 @@ pcall(function() GUI.Parent = getParentTarget() end)
 if not GUI.Parent then GUI.Parent = PG end
 Instance.new("UIScale", GUI).Scale = 0.80
 
--- MAIN FRAME
+-- MAIN FRAME (FIXED SIZE: 580 x 480, SAMA SEPERTI V5)
 local Main = Instance.new("Frame", GUI)
 Main.Name = "KZ_Main"
-Main.Size = UDim2.fromOffset(580, 480)
-Main.Position = UDim2.new(0.5, -290, 0.5, -240)
+Main.Size = UDim2.new(0, 580, 0, 480) -- V5 Base Size
+Main.Position = UDim2.new(0.5, 0, 0.5, 0)
+Main.AnchorPoint = Vector2.new(0.5, 0.5)
 Main.BackgroundColor3 = COL.bg
 Main.BorderSizePixel = 0
 Main.ZIndex = 10
 addStroke(Main, 3)
-addShadow(GUI, Main.Size, Main.Position)
+addShadow(GUI, Main.Size, Main.Position, Main.AnchorPoint)
 
 -- HEADER
 local Hdr = Instance.new("Frame", Main)
@@ -200,7 +206,7 @@ function W:AddTab(cfg)
         bc.BackgroundColor3 = COL.cardB
         bc.BorderSizePixel = 0; bc.ZIndex = 14
         addStroke(bc, 2)
-        addShadow(p, bc.Size, bc.Position)
+        addShadow(p, bc.Size, bc.Position, Vector2.new(0, 0))
         
         local img = Instance.new("ImageLabel", bc)
         img.Size = UDim2.new(1, -12, 1, -12); img.Position = UDim2.fromOffset(6, 6)
@@ -216,7 +222,7 @@ function W:AddTab(cfg)
         b2.BackgroundColor3 = COL.cyan
         b2.BorderSizePixel = 0; b2.Text = ""; b2.AutoButtonColor = false; b2.ZIndex = 14
         addStroke(b2, 2)
-        addShadow(p, b2.Size, b2.Position)
+        addShadow(p, b2.Size, b2.Position, Vector2.new(0, 0))
         
         local l2 = Instance.new("TextLabel", b2)
         l2.Size = UDim2.new(1, -20, 1, 0); l2.Position = UDim2.fromOffset(14, 0)
@@ -234,7 +240,7 @@ function W:AddTab(cfg)
         row.BackgroundColor3 = COL.cardB
         row.BorderSizePixel = 0; row.ZIndex = 14
         addStroke(row, 2)
-        addShadow(p, row.Size, row.Position)
+        addShadow(p, row.Size, row.Position, Vector2.new(0, 0))
 
         local l2 = Instance.new("TextLabel", row)
         l2.Size = UDim2.new(1, -80, 1, 0); l2.Position = UDim2.fromOffset(14, 0)
@@ -279,7 +285,7 @@ function W:AddTab(cfg)
         row.BackgroundColor3 = COL.cardB
         row.BorderSizePixel = 0; row.ZIndex = 14
         addStroke(row, 2)
-        addShadow(p, row.Size, row.Position)
+        addShadow(p, row.Size, row.Position, Vector2.new(0, 0))
 
         local l2 = Instance.new("TextLabel", row)
         l2.Size = UDim2.new(1, -80, 0, 18); l2.Position = UDim2.fromOffset(14, 9)
@@ -345,7 +351,7 @@ function W:AddTab(cfg)
         row.BackgroundColor3 = COL.cardB
         row.BorderSizePixel = 0; row.ZIndex = 14
         addStroke(row, 2)
-        addShadow(p, row.Size, row.Position)
+        addShadow(p, row.Size, row.Position, Vector2.new(0, 0))
 
         local l2 = Instance.new("TextLabel", row)
         l2.Size = UDim2.new(1, -140, 1, 0); l2.Position = UDim2.fromOffset(14, 0)
@@ -599,4 +605,4 @@ UIS.InputBegan:Connect(function(i, g)
     end
 end)
 
-print("[KALZZ HUB V5] - UI Neo-Brutalism Loaded")
+print("[KALZZ HUB V5] - UI Neo-Brutalism Loaded (Size Fixed)")
