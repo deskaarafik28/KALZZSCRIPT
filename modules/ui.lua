@@ -1,17 +1,19 @@
 -- ============================================================
--- MODULES/UI.LUA - NEO-BRUTALISM (CLEANUP OLD + NO BLACK)
+-- MODULES/UI.LUA — NEO-BRUTALISM + ANTI-ILANG
 -- ============================================================
 local UIS = game:GetService("UserInputService")
 local TS = game:GetService("TweenService")
 local PG = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+local CoreGui = game:GetService("CoreGui")
 
 -- ============================================================
--- CLEANUP: HAPUS SEMUA SCREENGUI LAMA (INI PENYEBAB KOTAK HITAM)
+-- CLEANUP: hapus ScreenGui lama biar gak numpuk
 -- ============================================================
 for _, child in ipairs(PG:GetChildren()) do
     if child:IsA("ScreenGui") then
         local n = child.Name
-        if n:find("KalzzHub") or n:find("KZ_Float") or n:find("KZ_Modal") then
+        if n:find("KalzzHub") or n:find("KZ_Float") or n:find("KZ_Aim") 
+           or n:find("KZ_ToF_FOV") or n:find("KZ_Alert") or n:find("KZ_Stun") then
             pcall(function() child:Destroy() end)
         end
     end
@@ -49,7 +51,9 @@ local GUI = Instance.new("ScreenGui")
 GUI.Name = "KalzzHub_Main"
 GUI.ResetOnSpawn = false; GUI.IgnoreGuiInset = true
 GUI.DisplayOrder = 999998; GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-GUI.Enabled = true; GUI.Parent = PG
+GUI.Enabled = true
+pcall(function() if gethui then GUI.Parent = gethui() else GUI.Parent = PG end end)
+if not GUI.Parent then GUI.Parent = PG end
 
 local uiScale = Instance.new("UIScale", GUI)
 uiScale.Scale = 0.75
@@ -63,7 +67,7 @@ addStroke(Main, 3)
 local sizeConstraint = Instance.new("UISizeConstraint", Main)
 sizeConstraint.MaxSize = Vector2.new(580, 480); sizeConstraint.MinSize = Vector2.new(580, 480)
 
--- HEADER (hitam, TAPI cuma header-nya doang, bukan overlay)
+-- HEADER
 local Hdr = Instance.new("Frame", Main)
 Hdr.Size = UDim2.new(1, -6, 0, 48); Hdr.Position = UDim2.fromOffset(3, 3)
 Hdr.BackgroundColor3 = COL.panel; Hdr.BorderSizePixel = 0; Hdr.ZIndex = 11
@@ -407,12 +411,14 @@ TMisc:Tog("stun_on", {Title = "Stun Killer Notif", Default = CFG.stun_on, Callba
 W:Show("Info")
 
 -- ============================================================
--- FLOATING BUTTON
+-- FLOATING BUTTON (TRANSPARAN KOTAK)
 -- ============================================================
 local FG = Instance.new("ScreenGui")
 FG.Name = "KZ_Float"
 FG.ResetOnSpawn = false; FG.IgnoreGuiInset = true
-FG.DisplayOrder = 2147483646; FG.Parent = PG
+FG.DisplayOrder = 2147483646
+pcall(function() if gethui then FG.Parent = gethui() else FG.Parent = PG end end)
+if not FG.Parent then FG.Parent = PG end
 
 local FB = Instance.new("TextButton", FG)
 FB.Size = UDim2.fromOffset(60, 60); FB.Position = UDim2.new(0, 20, 0.5, -30)
@@ -469,6 +475,7 @@ MinBtn.MouseButton1Click:Connect(function()
     FB.Visible = true
 end)
 
+-- Toggle via RightShift
 UIS.InputBegan:Connect(function(i, g)
     if g then return end
     if i.KeyCode == Enum.KeyCode.V then CFG.tof_on = not CFG.tof_on; save() end
@@ -485,14 +492,100 @@ UIS.InputBegan:Connect(function(i, g)
     end
 end)
 
-task.spawn(function()
-    while true do
-        task.wait(2)
-        if not GUI.Parent then GUI.Parent = PG end
-        if not FG.Parent then FG.Parent = PG end
-        if Main and Main.Size ~= UDim2.new(0, 580, 0, 480) then Main.Size = UDim2.new(0, 580, 0, 480) end
-    end
-end)
+-- ============================================================
+-- UI ANTI ILANG (WATCHDOG + RESPAWN PROTECTION)
+-- ============================================================
+do
+    local NamesToProtect = { "KalzzHub_Main", "KZ_Float", "KZ_Aim_FOV", "KZ_ToF_FOV", "KZ_Alert", "KZ_StunToast" }
 
-print("[KZ UI] Neo-Brutalism loaded (Cleanup + No Black Box)")
+    local function isProtectedGui(g)
+        if not g:IsA("ScreenGui") then return false end
+        local n = g.Name
+        for _, key in ipairs(NamesToProtect) do
+            if n == key then return true end
+        end
+        if n:find("KZ_") or n:find("KalzzHub") or n:find("KALZZ") then
+            return true
+        end
+        return false
+    end
+
+    local function protect(g)
+        if not g or not isProtectedGui(g) then return end
+        pcall(function() g.ResetOnSpawn = false end)
+        pcall(function() g.IgnoreGuiInset = true end)
+        pcall(function()
+            local target
+            if gethui then target = gethui() else target = PG end
+            if g.Parent ~= target then g.Parent = target end
+        end)
+        pcall(function() g.Enabled = true end)
+    end
+
+    local function scanAndProtect()
+        local parents = { PG, CoreGui }
+        pcall(function() if gethui then table.insert(parents, gethui()) end end)
+        for _, parent in ipairs(parents) do
+            if parent then
+                for _, g in ipairs(parent:GetChildren()) do
+                    if isProtectedGui(g) then protect(g) end
+                end
+            end
+        end
+    end
+
+    -- Initial scan + retry
+    task.spawn(function()
+        for _ = 1, 25 do
+            scanAndProtect()
+            task.wait(0.2)
+        end
+    end)
+
+    -- Respawn protection
+    game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function()
+        task.defer(function()
+            task.wait(0.3)
+            scanAndProtect()
+            if GUI and GUI.Parent == nil then
+                pcall(function() GUI.Parent = PG end)
+            end
+            if FG and FG.Parent == nil then
+                pcall(function() FG.Parent = PG end)
+            end
+            Main.Visible = true
+            FB.Visible = false
+        end)
+    end)
+
+    -- Watchdog tiap 2 detik
+    task.spawn(function()
+        while task.wait(2) do
+            scanAndProtect()
+            if Main and Main.Size ~= UDim2.new(0, 580, 0, 480) then
+                Main.Size = UDim2.new(0, 580, 0, 480)
+            end
+        end
+    end)
+
+    -- Auto-protect ScreenGui baru di PG
+    PG.ChildAdded:Connect(function(child)
+        if child:IsA("ScreenGui") and isProtectedGui(child) then
+            task.defer(function() protect(child) end)
+        end
+    end)
+    pcall(function()
+        if gethui then
+            gethui().ChildAdded:Connect(function(child)
+                if child:IsA("ScreenGui") and isProtectedGui(child) then
+                    task.defer(function() protect(child) end)
+                end
+            end)
+        end
+    end)
+
+    print("[KZ UI] Anti-ilang aktif (watchdog + respawn protection)")
+end
+
+print("[KZ UI] Neo-Brutalism loaded + Anti-Ilang")
 return true
