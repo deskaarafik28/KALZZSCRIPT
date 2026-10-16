@@ -1,4 +1,4 @@
---[[ KALZZSCRIPT | main.lua ]]
+--[[ KALZZSCRIPT | main.lua | UNIFIED HOOK EDITION ]]
 
 local BASE_URL = "https://raw.githubusercontent.com/deskaarafik28/KALZZSCRIPT/refs/heads/main/modules/"
 
@@ -101,17 +101,14 @@ S.isLocalKiller = function()
     return false
 end
 
+-- ============================================================
+-- NewHook jadi NO-OP (semua hooking di-handle unified hook)
+-- Module panggil S.NewHook, tapi hook-nya ga diinstall
+-- ============================================================
 S.NewHook = function(fn)
-    if typeof(hookmetamethod) ~= "function"
-        or typeof(newcclosure) ~= "function"
-        or typeof(getnamecallmethod) ~= "function"
-    then return nil end
-    local OLD
-    OLD = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-        local m; pcall(function() m = getnamecallmethod() end)
-        return fn(self, m, OLD, ...)
-    end))
-    return OLD
+    -- No-op: unified hook di main.lua yang urus semua
+    -- Module cuma perlu set _G.KZ_ToFAimDir / _G.KZ_VeilState.lookVector
+    return nil
 end
 
 _G.KZ = S
@@ -135,5 +132,120 @@ task.spawn(function()
         task.wait(0.05)
     end
 end)
+
+-- ============================================================
+-- UNIFIED HOOK (ToF + Veil + Anti-Kick) — SINGLE INSTANCE
+-- Semua FireServer interception dilakukan di sini
+-- ============================================================
+do
+    if typeof(hookmetamethod) == "function"
+       and typeof(newcclosure) == "function"
+       and typeof(getnamecallmethod) == "function" then
+
+        local OLD
+        OLD = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+            local m
+            pcall(function() m = getnamecallmethod() end)
+
+            -- === ANTI KICK ===
+            if m == "Kick" then
+                if self == S.LP then return nil end
+                return OLD(self, ...)
+            end
+
+            -- === FILTER: cuma FireServer ===
+            if m ~= "FireServer" then return OLD(self, ...) end
+            if type(self) ~= "userdata" and type(self) ~= "table" then
+                return OLD(self, ...)
+            end
+
+            -- === AMBIL AIM STATE ===
+            local tofDir  = _G.KZ_ToFAimDir
+            local veilDir = _G.KZ_VeilState and _G.KZ_VeilState.lookVector
+
+            local hasToF  = S.CFG and S.CFG.tof_on  and typeof(tofDir)  == "Vector3"
+            local hasVeil = S.CFG and S.CFG.veil_on and typeof(veilDir) == "Vector3"
+
+            if not hasToF and not hasVeil then return OLD(self, ...) end
+
+            local args = table.pack(...)
+            local n = args.n
+
+            -- === IDENTIFIKASI REMOTE ===
+            local sName, sFull = "", ""
+            pcall(function() sName = tostring(self.Name or "") end)
+            pcall(function() sFull = self:GetFullName():lower() end)
+            local sNameL = sName:lower()
+
+            -- === VEIL SPEAR (prioritas: killer) ===
+            if hasVeil then
+                local match = (S.RC.veil and self == S.RC.veil)
+                if not match then
+                    if sName == "Spearthrow"
+                       or sNameL == "spearthrow"
+                       or sNameL == "throwspear"
+                       or sNameL == "veilspear"
+                       or (sNameL == "throw" and sFull:find("veil")) then
+                        match = true
+                    end
+                end
+                if match then
+                    local changed = false
+                    for i = 1, n do
+                        if typeof(args[i]) == "Vector3" then
+                            if args[i].Magnitude <= 5 then
+                                args[i] = veilDir
+                            else
+                                -- kalau velocity, preserve magnitude
+                                args[i] = veilDir.Unit * args[i].Magnitude
+                            end
+                            changed = true
+                            break
+                        end
+                    end
+                    if not changed then args[1] = veilDir end
+                    return OLD(self, table.unpack(args, 1, n))
+                end
+            end
+
+            -- === ToF (Twist of Fate) ===
+            if hasToF then
+                local match = (S.RC.tof and self == S.RC.tof)
+                if not match then
+                    if sName == "Fire" or sName == "Shoot"
+                       or sNameL == "fire" or sNameL == "shoot" then
+                        if sFull:find("twist") or sFull:find("fate")
+                           or sFull:find("tof") then
+                            match = true
+                        end
+                    end
+                end
+                if match then
+                    local changed = false
+                    for i = 1, n do
+                        local v = args[i]
+                        if typeof(v) == "Vector3" then
+                            if v.Magnitude <= 5 then
+                                args[i] = tofDir
+                            else
+                                args[i] = tofDir.Unit * v.Magnitude
+                            end
+                            changed = true
+                            break
+                        end
+                    end
+                    if not changed then args[1] = tofDir end
+                    return OLD(self, table.unpack(args, 1, n))
+                end
+            end
+
+            return OLD(self, table.unpack(args, 1, n))
+        end))
+
+        print("[KZ] Unified hook installed (ToF + Veil + Anti-Kick)")
+    else
+        warn("[KZ] hookmetamethod tidak tersedia — unified hook tidak terpasang")
+    end
+end
 
 print("[KZ] main.lua loaded | modules:", #MODULES)
