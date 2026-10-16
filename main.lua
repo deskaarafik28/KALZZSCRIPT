@@ -1,10 +1,9 @@
---[[ KALZZSCRIPT | main.lua | UNIFIED HOOK EDITION ]]
+--[[ KALZZSCRIPT | main.lua | UNIFIED HOOK + CFG SYNC ]]
 
 local BASE_URL = "https://raw.githubusercontent.com/deskaarafik28/KALZZSCRIPT/refs/heads/main/modules/"
 
 local MODULES = {
     "config",
-    "kick",
     "silent-aim-tof",
     "silent-aim-veil",
     "auto-parry",
@@ -35,13 +34,14 @@ S.INVITE = "discord.gg/dCYTep9cY"
 S.IMG = "rbxassetid://134442738689157"
 S.BASE_URL = BASE_URL
 
+-- CFG awal (nanti di-sync dari config.lua setelah load)
 S.CFG = {}
 S.SaveCfg = function() end
 
-_G.KZ_ToFAimDir = nil
-_G.KZ_ToFStamp = 0
-_G.KZ_ToFTarget = nil
-_G.KZ_VeilState = _G.KZ_VeilState or { lookVector=nil, stamp=0, target=nil }
+_G.KZ_ToFAimDir  = nil
+_G.KZ_ToFStamp   = 0
+_G.KZ_ToFTarget  = nil
+_G.KZ_VeilState  = _G.KZ_VeilState or { lookVector=nil, stamp=0, target=nil, velHistory={} }
 
 S.RC = { tof=nil, veil=nil, parry=nil, fastvault=nil }
 pcall(function() S.RC.tof = S.RS.Remotes.Items["Twist of Fate"].Fire end)
@@ -102,12 +102,9 @@ S.isLocalKiller = function()
 end
 
 -- ============================================================
--- NewHook jadi NO-OP (semua hooking di-handle unified hook)
--- Module panggil S.NewHook, tapi hook-nya ga diinstall
+-- NO-OP: module tetap panggil S.NewHook, tapi ga install apa-apa
 -- ============================================================
 S.NewHook = function(fn)
-    -- No-op: unified hook di main.lua yang urus semua
-    -- Module cuma perlu set _G.KZ_ToFAimDir / _G.KZ_VeilState.lookVector
     return nil
 end
 
@@ -117,12 +114,13 @@ local function loadModule(name)
     local url = BASE_URL .. name .. ".lua"
     local ok, src = pcall(game.HttpGet, game, url)
     if not ok or not src or src == "" then
-        warn("[KZ] gagal load: " .. name); return
+        warn("[KZ] gagal load: " .. name); return false
     end
     local fn, err = loadstring(src)
-    if not fn then warn("[KZ] syntax error "..name..": "..tostring(err)) return end
+    if not fn then warn("[KZ] syntax error "..name..": "..tostring(err)) return false end
     local ok2, err2 = pcall(fn)
-    if not ok2 then warn("[KZ] runtime error "..name..": "..tostring(err2)) end
+    if not ok2 then warn("[KZ] runtime error "..name..": "..tostring(err2)) return false end
+    return true
 end
 
 task.spawn(function()
@@ -131,11 +129,27 @@ task.spawn(function()
         loadModule(name)
         task.wait(0.05)
     end
+
+    -- ========================================================
+    -- SYNC CFG DARI config.lua (INI YANG BIKIN AIMBOT JALAN)
+    -- ========================================================
+    if _G.KALZZ_CFG then
+        S.CFG = _G.KALZZ_CFG
+        _G.KZ.CFG = _G.KALZZ_CFG
+    end
+    if _G.KZ_SaveCfg then
+        S.SaveCfg = _G.KZ_SaveCfg
+        _G.KZ.SaveCfg = _G.KZ_SaveCfg
+    end
+    if _G.KZ then
+        _G.KZ.CFG = S.CFG
+        _G.KZ.SaveCfg = S.SaveCfg
+    end
+    print("[KZ] CFG synced from config.lua | tof_on:", S.CFG.tof_on, "veil_on:", S.CFG.veil_on)
 end)
 
 -- ============================================================
--- UNIFIED HOOK (ToF + Veil + Anti-Kick) — SINGLE INSTANCE
--- Semua FireServer interception dilakukan di sini
+-- UNIFIED HOOK (Anti-Kick + Veil + ToF) — SINGLE INSTANCE
 -- ============================================================
 do
     if typeof(hookmetamethod) == "function"
@@ -171,14 +185,13 @@ do
             local args = table.pack(...)
             local n = args.n
 
-            -- === IDENTIFIKASI REMOTE ===
             local sName, sFull = "", ""
             pcall(function() sName = tostring(self.Name or "") end)
             pcall(function() sFull = self:GetFullName():lower() end)
             local sNameL = sName:lower()
 
-            -- === VEIL SPEAR (prioritas: killer) ===
-            if hasVeil then
+            -- === VEIL SPEAR (killer only) ===
+            if hasVeil and S.isLocalKiller() then
                 local match = (S.RC.veil and self == S.RC.veil)
                 if not match then
                     if sName == "Spearthrow"
@@ -190,13 +203,20 @@ do
                     end
                 end
                 if match then
+                    -- fresh recompute (kalau module expose)
+                    if S.RecomputeVeil then
+                        local ok, fresh = pcall(S.RecomputeVeil)
+                        if ok and typeof(fresh) == "Vector3" then
+                            veilDir = fresh
+                        end
+                    end
+
                     local changed = false
                     for i = 1, n do
                         if typeof(args[i]) == "Vector3" then
                             if args[i].Magnitude <= 5 then
                                 args[i] = veilDir
                             else
-                                -- kalau velocity, preserve magnitude
                                 args[i] = veilDir.Unit * args[i].Magnitude
                             end
                             changed = true
@@ -208,8 +228,8 @@ do
                 end
             end
 
-            -- === ToF (Twist of Fate) ===
-            if hasToF then
+            -- === ToF (survivor only) ===
+            if hasToF and not S.isLocalKiller() then
                 local match = (S.RC.tof and self == S.RC.tof)
                 if not match then
                     if sName == "Fire" or sName == "Shoot"
@@ -242,7 +262,7 @@ do
             return OLD(self, table.unpack(args, 1, n))
         end))
 
-        print("[KZ] Unified hook installed (ToF + Veil + Anti-Kick)")
+        print("[KZ] Unified hook installed (Anti-Kick + Veil + ToF)")
     else
         warn("[KZ] hookmetamethod tidak tersedia — unified hook tidak terpasang")
     end
