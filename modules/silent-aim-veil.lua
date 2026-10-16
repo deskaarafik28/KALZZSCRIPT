@@ -1,3 +1,8 @@
+-- ======================
+-- SILENT AIM VEIL SPEAR • CLEAN (NO HOOK)
+-- Cuma hitung direction + set _G.KZ_VeilState.lookVector
+-- Hook FireServer di-handle unified hook di main.lua
+-- ======================
 local S = _G.KZ
 if not S then return end
 
@@ -8,19 +13,25 @@ local VD = {
     VeilGravity=103, VeilAuraSpearGravity=96.5,
     VeilLeadMultiplier=1.4,
 }
+
 S.RSvc.RenderStepped:Connect(function()
-    VD.VeilEnabled = S.CFG.veil_on
-    VD.VeilShowFOV = S.CFG.veil_show_fov
-    VD.VeilFOV = S.CFG.veil_fov or 320
-    VD.VeilMaxDist = S.CFG.veil_maxdist or 2000
+    if not S.CFG then return end
+    VD.VeilEnabled    = S.CFG.veil_on
+    VD.VeilShowFOV    = S.CFG.veil_show_fov
+    VD.VeilFOV        = S.CFG.veil_fov or 320
+    VD.VeilMaxDist    = S.CFG.veil_maxdist or 2000
 end)
 
 local ACCENT = Color3.fromRGB(150, 105, 255)
-local BLACK = Color3.fromRGB(0,0,0)
-local WHITE = Color3.fromRGB(255,255,255)
-local LP = S.LP
+local BLACK  = Color3.fromRGB(0,0,0)
+local WHITE  = Color3.fromRGB(255,255,255)
+local LP     = S.LP
 
-local VeilState = { target=nil, lookVector=nil, velHistory={} }
+-- Pakai _G.KZ_VeilState (shared dengan main.lua) biar unified hook bisa baca
+_G.KZ_VeilState = _G.KZ_VeilState or { lookVector=nil, stamp=0, target=nil }
+_G.KZ_VeilState.velHistory = _G.KZ_VeilState.velHistory or {}
+
+local VeilState = _G.KZ_VeilState
 local VeilVisuals = {}
 
 pcall(function()
@@ -38,7 +49,7 @@ pcall(function()
     V.TrackerLine = Drawing.new("Line"); V.TrackerLine.Color=ACCENT; V.TrackerLine.Thickness=1.5; V.TrackerLine.Transparency=0.6; V.TrackerLine.Visible=false
 end)
 
--- ─── Ballistic Solver (iterative, lebih akurat dekat & jauh) ───────────────
+-- ─── Ballistic Solver ─────────────────────────────────────────────────────
 local function solvePitchIterative(v0, g, flatDist, dy, iters)
     iters = iters or 4
     flatDist = math.max(flatDist, 0.1)
@@ -47,7 +58,6 @@ local function solvePitchIterative(v0, g, flatDist, dy, iters)
     if root < 0 then root = 0 end
     local tanTheta = (s2 - math.sqrt(root)) / (g * flatDist)
     local theta = math.atan(tanTheta)
-    -- iterative refinement buat akurasi lebih di range ekstrem
     for _ = 1, iters do
         local cosT = math.cos(theta)
         if math.abs(cosT) < 1e-6 then break end
@@ -82,7 +92,7 @@ S.Players.PlayerRemoving:Connect(function(p)
     if p.Character then VeilState.velHistory[p.Character] = nil end
 end)
 
--- ─── Compute lookVector + aimPoint ────────────────────────────────────────
+-- ─── Compute lookVector ───────────────────────────────────────────────────
 local function computeLook(origin, targetPos, targetChar, prof)
     local aimPoint = targetPos
     if VD.VeilAutoPredict then
@@ -95,7 +105,6 @@ local function computeLook(origin, targetPos, targetChar, prof)
             pcall(function() ping = math.clamp(LP:GetNetworkPing(), 0, 0.4) end)
             local totalDelay = tFlight + prof.windup + ping + prof.latency
 
-            -- 3 iterasi prediksi buat konvergen
             for _ = 1, 3 do
                 local lead = vel * totalDelay * prof.scale
                 local maxL = math.clamp((targetPos - origin).Magnitude * 0.55, 2, prof.maxlead)
@@ -182,14 +191,14 @@ end
 -- ─── Aimbot Loop ──────────────────────────────────────────────────────────
 local function updateAimbot()
     if not S.isLocalKiller() then
-        VeilState.target=nil; VeilState.lookVector=nil; hideAll(); return
+        VeilState.target=nil; VeilState.lookVector=nil; VeilState.stamp=0; hideAll(); return
     end
     local cam = S.Workspace.CurrentCamera
     if not cam then return end
     local center = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2)
     if VD.VeilShowFOV and VD.VeilEnabled then updateFOV(center) else hideFOV() end
     if not VD.VeilEnabled then
-        VeilState.target=nil; VeilState.lookVector=nil; hideTracker(); return
+        VeilState.target=nil; VeilState.lookVector=nil; VeilState.stamp=0; hideTracker(); return
     end
     local char = LP.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -240,6 +249,7 @@ local function updateAimbot()
             local lv, _ = computeLook(origin, tp, nearest.Character, prof)
             VeilState.lookVector = lv
             VeilState.target = nearest
+            VeilState.stamp = os.clock()
 
             if VD.VeilShowTracker then
                 local sp, vis = cam:WorldToViewportPoint(tp)
@@ -255,7 +265,7 @@ local function updateAimbot()
             else hideTracker() end
         end
     else
-        VeilState.target=nil; VeilState.lookVector=nil; hideTracker()
+        VeilState.target=nil; VeilState.lookVector=nil; VeilState.stamp=0; hideTracker()
     end
 end
 
@@ -268,58 +278,41 @@ S.RSvc.Heartbeat:Connect(function()
     end
 end)
 
--- ─── FireServer Hook – intercept SETIAP spear throw ──────────────────────
--- Kalau ada multiple remote (misal variant nama beda), semua ke-hook.
--- Recompute lookVector fresh on-fire biar timing paling akurat.
-if S.NewHook then
-    S.NewHook(function(self, method, OLD, ...)
-        if method ~= "FireServer" then return OLD(self, ...) end
-        if not S.CFG.veil_on then return OLD(self, ...) end
-        if not S.isLocalKiller() then return OLD(self, ...) end
+-- ============================================================
+-- EXPOSE FRESH RECOMPUTE untuk unified hook
+-- Unified hook panggil ini tepat sebelum FireServer
+-- ============================================================
+S.RecomputeVeil = function()
+    if not S.CFG or not S.CFG.veil_on then return nil end
+    if not S.isLocalKiller() then return nil end
+    if not VeilState.target or not VeilState.target.Character then
+        return VeilState.lookVector
+    end
+    local char = LP.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return VeilState.lookVector end
 
-        local sn = ""
-        pcall(function() sn = tostring(self.Name or "") end)
+    local tc = VeilState.target.Character
+    local tpart = tc:FindFirstChild("UpperTorso") or tc:FindFirstChild("Torso") or tc:FindFirstChild("HumanoidRootPart")
+    if not tpart then return VeilState.lookVector end
 
-        -- tangkep semua remote yang ngandung "spear" (case-insensitive)
-        if not sn:lower():find("spear") then return OLD(self, ...) end
+    local hand = char:FindFirstChild("Right Arm") or char:FindFirstChild("RightHand")
+    local origin = (hand and hand:IsA("BasePart")) and hand.Position or hrp.Position
+    local dist = (tpart.Position - origin).Magnitude
+    if dist <= 0.1 or dist > (VD.VeilMaxDist or 2000) then
+        return VeilState.lookVector
+    end
 
-        local char = LP.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if not hrp then return OLD(self, ...) end
+    local isAura = char:GetAttribute("special") == true
+    local prof
+    if isAura then
+        prof = { v0=VD.VeilAuraSpearSpeed, g=VD.VeilAuraSpearGravity, windup=0.0, latency=0.03, maxlead=25, scale=VD.VeilLeadMultiplier }
+    else
+        prof = { v0=VD.VeilSpearSpeed, g=VD.VeilGravity, windup=0.0, latency=0.03, maxlead=45, scale=VD.VeilLeadMultiplier }
+    end
 
-        -- recompute fresh saat fire beneran
-        local freshLV = VeilState.lookVector
-        if VeilState.target and VeilState.target.Character then
-            local tc = VeilState.target.Character
-            local tpart = tc:FindFirstChild("UpperTorso") or tc:FindFirstChild("Torso") or tc:FindFirstChild("HumanoidRootPart")
-            if tpart then
-                local hand = char:FindFirstChild("Right Arm") or char:FindFirstChild("RightHand")
-                local origin = (hand and hand:IsA("BasePart")) and hand.Position or hrp.Position
-                local dist = (tpart.Position - origin).Magnitude
-                if dist > 0.1 and dist <= (VD.VeilMaxDist or 2000) then
-                    local isAura = char:GetAttribute("special") == true
-                    local prof
-                    if isAura then
-                        prof = { v0=VD.VeilAuraSpearSpeed, g=VD.VeilAuraSpearGravity, windup=0.0, latency=0.03, maxlead=25, scale=VD.VeilLeadMultiplier }
-                    else
-                        prof = { v0=VD.VeilSpearSpeed, g=VD.VeilGravity, windup=0.0, latency=0.03, maxlead=45, scale=VD.VeilLeadMultiplier }
-                    end
-                    -- windup=0 karena hook dipanggil tepat saat fire
-                    local lv, _ = computeLook(origin, tpart.Position, tc, prof)
-                    if typeof(lv) == "Vector3" then freshLV = lv end
-                end
-            end
-        end
-
-        if typeof(freshLV) ~= "Vector3" then return OLD(self, ...) end
-
-        local args = table.pack(...)
-        -- arg[1] biasanya direction Vector3
-        if typeof(args[1]) == "Vector3" then
-            args[1] = freshLV.Unit
-        end
-        return OLD(self, table.unpack(args, 1, args.n))
-    end)
+    local lv = computeLook(origin, tpart.Position, tc, prof)
+    return lv
 end
 
-print("[KZ] silent-aim-veil loaded (hook v2 + iterative solver)")
+print("[KZ] Veil aim direction loaded (hook handled by main.lua)")
