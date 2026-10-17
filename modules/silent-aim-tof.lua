@@ -1,29 +1,13 @@
--- ======================
--- SILENT AIM ToF • CLEAN (NO HOOK)
--- Cuma hitung direction + set _G.KZ_ToFAimDir
--- Hook FireServer di-handle unified hook di main.lua
--- ======================
+-- SILENT AIM ToF — NO HOOK
 local S = _G.KZ
-if not S then
-    warn("[KZ ToF] _G.KZ missing")
-    return
-end
+if not S then return end
 
-local LP      = S.LP      or game:GetService("Players").LocalPlayer
-local Players = S.Players or game:GetService("Players")
-local RSvc    = S.RSvc    or game:GetService("RunService")
-local CFG     = S.CFG     or {}
+local LP      = S.LP
+local Players = S.Players
+local RSvc    = S.RSvc
+local CFG     = _G.KALZZ_CFG or {}   -- ⭐ pakai global, live reference
 
 _G.KZ_ToFAimDir = nil
-
--- remote (cuma buat cek, gak dipakai hook)
-pcall(function()
-    S.RC = S.RC or {}
-    if not S.RC.tof then
-        S.RC.tof = game:GetService("ReplicatedStorage")
-            .Remotes.Items["Twist of Fate"].Fire
-    end
-end)
 
 local velHist = {}
 local hold, a0, a1, beam
@@ -31,28 +15,20 @@ local hold, a0, a1, beam
 local function getRoot(c)
     return c and (c:FindFirstChild("HumanoidRootPart") or c.PrimaryPart)
 end
-
-local function flat(v)
-    return Vector3.new(v.X, 0, v.Z)
-end
+local function flat(v) return Vector3.new(v.X, 0, v.Z) end
 
 local function isKnock()
     local ch = LP.Character
     if not ch then return false end
-    return ch:GetAttribute("Knocked")
-        or ch:GetAttribute("Downed")
-        or ch:GetAttribute("Carried")
-        or ch:GetAttribute("IsCarried")
+    return ch:GetAttribute("Knocked") or ch:GetAttribute("Downed")
+        or ch:GetAttribute("Carried") or ch:GetAttribute("IsCarried")
 end
 
 local function getOrigin()
     local ch = LP.Character
     local Cam = workspace.CurrentCamera
     if isKnock() and ch then
-        for _, n in ipairs({
-            "RightHand", "Right Arm", "RightLowerArm", "RightUpperArm",
-            "LeftHand", "Left Arm", "LeftLowerArm",
-        }) do
+        for _, n in ipairs({"RightHand","Right Arm","RightLowerArm","RightUpperArm","LeftHand","Left Arm","LeftLowerArm"}) do
             local p = ch:FindFirstChild(n)
             if p and p:IsA("BasePart") then return p.Position end
         end
@@ -90,10 +66,8 @@ local function getMotion(ch)
     if h and h.lastDir and h.lastDir.Magnitude > 0.5 and s.Magnitude > 2 then
         if flat(s).Unit:Dot(flat(h.lastDir).Unit) < 0.25 then zig = 1 end
     end
-    velHist[ch] = {
-        pos = root.Position, t = now, s = s,
-        lastDir = s.Magnitude > 1 and s or (h and h.lastDir),
-    }
+    velHist[ch] = { pos=root.Position, t=now, s=s,
+        lastDir = s.Magnitude > 1 and s or (h and h.lastDir) }
     return Vector3.new(s.X, 0, s.Z), zig
 end
 
@@ -145,25 +119,18 @@ local function ensureLaser()
     if hold and hold.Parent then return end
     hold = Instance.new("Part")
     hold.Name = "KZ_ToFLaser"
-    hold.Anchored = true
-    hold.CanCollide = false
-    hold.CanQuery = false
-    hold.Transparency = 1
-    hold.Size = Vector3.new(0.1, 0.1, 0.1)
+    hold.Anchored = true; hold.CanCollide = false; hold.CanQuery = false
+    hold.Transparency = 1; hold.Size = Vector3.new(0.1, 0.1, 0.1)
     hold.Parent = workspace
     a0 = Instance.new("Attachment", hold)
     a1 = Instance.new("Attachment", hold)
     beam = Instance.new("Beam", hold)
-    beam.Attachment0 = a0
-    beam.Attachment1 = a1
-    beam.Width0 = 0.07
-    beam.Width1 = 0.03
-    beam.LightEmission = 1
-    beam.LightInfluence = 0
+    beam.Attachment0 = a0; beam.Attachment1 = a1
+    beam.Width0 = 0.07; beam.Width1 = 0.03
+    beam.LightEmission = 1; beam.LightInfluence = 0
     beam.Color = ColorSequence.new(Color3.fromRGB(255, 70, 70))
     beam.Transparency = NumberSequence.new(0.12)
-    beam.FaceCamera = true
-    beam.Enabled = false
+    beam.FaceCamera = true; beam.Enabled = false
 end
 
 local function setLaser(from, to, on)
@@ -178,6 +145,7 @@ local function setLaser(from, to, on)
     beam.Enabled = true
 end
 
+-- FOV circle
 local fovGui, fovFrame, fovStroke
 local function ensureFov()
     if fovGui and fovGui.Parent then return end
@@ -210,9 +178,6 @@ local function updateFovDraw(locked)
     fovStroke.Color = locked and Color3.fromRGB(80, 255, 120) or Color3.fromRGB(255, 70, 70)
 end
 
--- ============================================================
--- DIRECTION LOOP (cuma set _G.KZ_ToFAimDir)
--- ============================================================
 RSvc.RenderStepped:Connect(function()
     if not CFG.tof_on then
         _G.KZ_ToFAimDir = nil
@@ -220,10 +185,8 @@ RSvc.RenderStepped:Connect(function()
         updateFovDraw(false)
         return
     end
-
     local killer, root = getTarget()
     local origin = getOrigin()
-
     if not killer or not root then
         _G.KZ_ToFAimDir = nil
         setLaser(nil, nil, false)
@@ -234,12 +197,9 @@ RSvc.RenderStepped:Connect(function()
     local aim = root.Position
     local dist = (aim - origin).Magnitude
     local vel, zig = getMotion(killer.Character)
-
     local t = math.clamp(dist / 220, 0.02, 0.55)
     local ping = 0.05
-    pcall(function()
-        ping = math.clamp(LP:GetNetworkPing(), 0, 0.28)
-    end)
+    pcall(function() ping = math.clamp(LP:GetNetworkPing(), 0, 0.28) end)
 
     local pred = CFG.tof_predict or 2.5
     if zig > 0 then pred = pred * 0.65 end
@@ -247,7 +207,6 @@ RSvc.RenderStepped:Connect(function()
     local lead = vel * (t + ping) * pred
     local maxLead = math.clamp(dist * 0.42, 1, 28)
     if lead.Magnitude > maxLead then lead = lead.Unit * maxLead end
-
     if dist < 12 then lead = lead * 0.15
     elseif dist < 22 then lead = lead * 0.45 end
 
@@ -258,10 +217,9 @@ RSvc.RenderStepped:Connect(function()
         updateFovDraw(false)
         return
     end
-
     _G.KZ_ToFAimDir = dir.Unit
     setLaser(origin, root.Position, true)
     updateFovDraw(true)
 end)
 
-print("[KZ] ToF aim direction loaded (hook handled by main.lua)")
+print("[KZ] silent-aim-tof loaded (no hook)")
