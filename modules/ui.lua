@@ -1,14 +1,12 @@
 -- ============================================================
--- MODULES/UI.LUA — NEO-BRUTALISM + ANTI-ILANG
+-- MODULES/UI.LUA — NEO-BRUTALISM + REALTIME CONNECT + ANTI-ILANG
 -- ============================================================
 local UIS = game:GetService("UserInputService")
 local TS = game:GetService("TweenService")
 local PG = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
 local CoreGui = game:GetService("CoreGui")
 
--- ============================================================
--- CLEANUP: hapus ScreenGui lama biar gak numpuk
--- ============================================================
+-- Cleanup ScreenGui lama biar gak numpuk
 for _, child in ipairs(PG:GetChildren()) do
     if child:IsA("ScreenGui") then
         local n = child.Name
@@ -19,15 +17,15 @@ for _, child in ipairs(PG:GetChildren()) do
     end
 end
 
+-- ⭐ REALTIME CONNECT: Ambil CFG langsung dari global
 local S = _G.KZ or {}
-local CFG = S.CFG or _G.KALZZ_CFG or {}
+local CFG = _G.KALZZ_CFG or {}
 local INVITE = S.INVITE or "discord.gg/dCYTep9cY"
 local IMG = S.IMG or "rbxassetid://134442738689157"
-local RC = S.RC or _G.KZ_RC or { tof=nil, veil=nil, parry=nil, fastvault=nil }
-local save = S.SaveCfg or _G.KZ_SaveCfg or function() end
+local save = _G.KZ_SaveCfg or S.SaveCfg or function() end
 
 if not CFG or next(CFG) == nil then
-    warn("[KZ UI] CFG kosong! Pastikan config.lua di-load duluan di main.lua.")
+    warn("[KZ UI] _G.KALZZ_CFG kosong! Pastikan main.lua sudah jalan.")
 end
 
 local COL = {
@@ -44,9 +42,6 @@ local function addStroke(parent, thickness, color)
     s.LineJoinMode = Enum.LineJoinMode.Miter; return s
 end
 
--- ============================================================
--- MAIN GUI
--- ============================================================
 local GUI = Instance.new("ScreenGui")
 GUI.Name = "KalzzHub_Main"
 GUI.ResetOnSpawn = false; GUI.IgnoreGuiInset = true
@@ -203,6 +198,7 @@ function W:AddTab(cfg)
         self.Y = self.Y + 44; return self
     end
 
+    -- ⭐ TOGGLE REALTIME (Langsung ubah _G.KALZZ_CFG)
     function t:Tog(id, c)
         local row = Instance.new("Frame", p)
         row.Size = UDim2.new(1, -8, 0, 42); row.Position = UDim2.fromOffset(4, self.Y)
@@ -212,6 +208,7 @@ function W:AddTab(cfg)
         l2.Size = UDim2.new(1, -80, 1, 0); l2.Position = UDim2.fromOffset(14, 0)
         l2.BackgroundTransparency = 1; l2.Text = c.Title or id; l2.TextColor3 = COL.tx
         l2.Font = Enum.Font.GothamBold; l2.TextSize = 12; l2.TextXAlignment = Enum.TextXAlignment.Left; l2.ZIndex = 15
+        
         local st = c.Default or false
         local tr = Instance.new("Frame", row)
         tr.Size = UDim2.fromOffset(40, 22); tr.Position = UDim2.new(1, -54, 0.5, -11)
@@ -221,17 +218,23 @@ function W:AddTab(cfg)
         k.Size = UDim2.fromOffset(14, 14); k.Position = st and UDim2.new(1, -18, 0.5, -7) or UDim2.new(0, 4, 0.5, -7)
         k.BackgroundColor3 = st and COL.cyan or COL.side; k.BorderSizePixel = 0; k.ZIndex = 16
         addStroke(k, 2)
+        
         local btn = Instance.new("TextButton", row)
         btn.Size = UDim2.new(1, 0, 1, 0); btn.BackgroundTransparency = 1; btn.Text = ""; btn.ZIndex = 17
         btn.MouseButton1Click:Connect(function()
             st = not st
             TS:Create(k, TweenInfo.new(0.1), {Position = st and UDim2.new(1, -18, 0.5, -7) or UDim2.new(0, 4, 0.5, -7), BackgroundColor3 = st and COL.cyan or COL.side}):Play()
             TS:Create(tr, TweenInfo.new(0.1), {BackgroundColor3 = st and COL.brd or COL.off}):Play()
+            
+            -- ⭐ UBAH CFG + SAVE
+            CFG[id] = st
             if c.Callback then pcall(c.Callback, st) end
+            save() 
         end)
         self.Y = self.Y + 48; return self
     end
 
+    -- ⭐ SLIDER REALTIME
     function t:Sl(id, c)
         local row = Instance.new("Frame", p)
         row.Size = UDim2.new(1, -8, 0, 56); row.Position = UDim2.fromOffset(4, self.Y)
@@ -264,7 +267,10 @@ function W:AddTab(cfg)
             local v = math.floor(mn + (mx - mn) * a + 0.5)
             f.Size = UDim2.new(a, 0, 1, 0); k.Position = UDim2.new(a, -8, 0.5, -8)
             vL.Text = tostring(v)
+            -- ⭐ UBAH CFG + SAVE
+            CFG[id] = v
             if c.Callback then pcall(c.Callback, v) end
+            save()
         end
         local hb = Instance.new("TextButton", row)
         hb.Size = UDim2.new(1, -20, 0, 26); hb.Position = UDim2.new(0, 10, 1, -30)
@@ -281,6 +287,7 @@ function W:AddTab(cfg)
         self.Y = self.Y + 62; return self
     end
 
+    -- ⭐ DROPDOWN REALTIME
     function t:Drop(id, c)
         local row = Instance.new("Frame", p)
         row.Size = UDim2.new(1, -8, 0, 42); row.Position = UDim2.fromOffset(4, self.Y)
@@ -314,7 +321,10 @@ function W:AddTab(cfg)
                 cur = v; vL.Text = v
                 TS:Create(hd, TweenInfo.new(0.15), {Size = UDim2.new(1, -8, 0, 0)}):Play()
                 task.delay(0.15, function() hd.Visible = false end)
+                -- ⭐ UBAH CFG + SAVE
+                CFG[id] = v
                 if c.Callback then pcall(c.Callback, v) end
+                save()
             end)
         end
         local hH = math.min(#vs * 30 + 8, 150)
@@ -337,7 +347,7 @@ function W:AddTab(cfg)
 end
 
 -- ============================================================
--- ISI TAB LENGKAP
+-- TABS & ISI UI (LENGKAP)
 -- ============================================================
 local TInfo = W:AddTab({Title = "Info"})
 local TSurv = W:AddTab({Title = "Penyintas"})
@@ -355,64 +365,59 @@ TInfo:Btn({Title = "Save Config Now", Callback = function()
 end})
 
 TSurv:Sec("Silent Aim (ToF)")
-TSurv:Tog("tof_on", {Title = "Enable ToF", Default = CFG.tof_on, Callback = function(v) CFG.tof_on = v; save() end})
-TSurv:Tog("tof_show_fov", {Title = "Show FOV Circle", Default = CFG.tof_show_fov, Callback = function(v) CFG.tof_show_fov = v; save() end})
-TSurv:Sl("tof_fov", {Title = "FOV", Min = 1, Max = 600, Default = CFG.tof_fov, Callback = function(v) CFG.tof_fov = v; save() end})
-TSurv:Sl("tof_predict", {Title = "Predict x10", Min = 10, Max = 50, Default = math.floor((CFG.tof_predict or 2.5) * 10), Callback = function(v) CFG.tof_predict = v / 10; save() end})
-TSurv:Sl("tof_maxdist", {Title = "Max Distance", Min = 100, Max = 3000, Default = CFG.tof_maxdist, Callback = function(v) CFG.tof_maxdist = v; save() end})
+TSurv:Tog("tof_on", {Title = "Enable ToF", Default = CFG.tof_on})
+TSurv:Tog("tof_show_fov", {Title = "Show FOV Circle", Default = CFG.tof_show_fov})
+TSurv:Sl("tof_fov", {Title = "FOV", Min = 1, Max = 600, Default = CFG.tof_fov})
+TSurv:Sl("tof_predict", {Title = "Predict x10", Min = 10, Max = 50, Default = math.floor((CFG.tof_predict or 2.5) * 10)})
+TSurv:Sl("tof_maxdist", {Title = "Max Distance", Min = 100, Max = 3000, Default = CFG.tof_maxdist})
 
 TSurv:Sec("Auto Generator")
-TSurv:Tog("gene_on", {Title = "Enable Auto Gen", Default = CFG.gene_on, Callback = function(v) CFG.gene_on = v; save() end})
-TSurv:Drop("gene_method", {Title = "Method", Values = {"SUCCESS", "NEUTRAL", "INSTANT"}, Default = CFG.gene_method, Callback = function(v) CFG.gene_method = v; save() end})
+TSurv:Tog("gene_on", {Title = "Enable Auto Gen", Default = CFG.gene_on})
+TSurv:Drop("gene_method", {Title = "Method", Values = {"SUCCESS", "NEUTRAL", "INSTANT"}, Default = CFG.gene_method})
 
 TSurv:Sec("Auto Parry")
-TSurv:Tog("parry_on", {Title = "Enable Parry", Default = CFG.parry_on, Callback = function(v) CFG.parry_on = v; save() end})
-TSurv:Tog("parry_show_circle", {Title = "Show Parry Circle", Default = CFG.parry_show_circle, Callback = function(v) CFG.parry_show_circle = v; save() end})
-TSurv:Tog("parry_aggro", {Title = "Aggressive", Default = CFG.parry_aggro, Callback = function(v) CFG.parry_aggro = v; save() end})
-TSurv:Tog("parry_antifake", {Title = "Anti Fake", Default = CFG.parry_antifake, Callback = function(v) CFG.parry_antifake = v; save() end})
-TSurv:Sl("parry_radius", {Title = "Radius", Min = 1, Max = 30, Default = CFG.parry_radius, Callback = function(v) CFG.parry_radius = v; save() end})
+TSurv:Tog("parry_on", {Title = "Enable Parry", Default = CFG.parry_on})
+TSurv:Tog("parry_show_circle", {Title = "Show Parry Circle", Default = CFG.parry_show_circle})
+TSurv:Tog("parry_aggro", {Title = "Aggressive", Default = CFG.parry_aggro})
+TSurv:Tog("parry_antifake", {Title = "Anti Fake", Default = CFG.parry_antifake})
+TSurv:Sl("parry_radius", {Title = "Radius", Min = 1, Max = 30, Default = CFG.parry_radius})
 
 TSurv:Sec("Movement")
-TSurv:Tog("crouch_on", {Title = "Auto Crouch", Default = CFG.crouch_on, Callback = function(v) CFG.crouch_on = v; save() end})
-TSurv:Tog("fast_vault", {Title = "Fast Vault", Default = CFG.fast_vault, Callback = function(v) CFG.fast_vault = v; save() end})
+TSurv:Tog("crouch_on", {Title = "Auto Crouch", Default = CFG.crouch_on})
+TSurv:Tog("fast_vault", {Title = "Fast Vault", Default = CFG.fast_vault})
 
 TKil:Sec("Silent Aim (Veil)")
-TKil:Tog("veil_on", {Title = "Enable Veil", Default = CFG.veil_on, Callback = function(v) CFG.veil_on = v; save() end})
-TKil:Tog("veil_show_fov", {Title = "Show FOV Circle", Default = CFG.veil_show_fov, Callback = function(v) CFG.veil_show_fov = v; save() end})
-TKil:Sl("veil_fov", {Title = "FOV", Min = 1, Max = 600, Default = CFG.veil_fov, Callback = function(v) CFG.veil_fov = v; save() end})
-TKil:Sl("veil_predict", {Title = "Predict x10", Min = 10, Max = 50, Default = math.floor((CFG.veil_predict or 2.8) * 10), Callback = function(v) CFG.veil_predict = v / 10; save() end})
-TKil:Sl("veil_maxdist", {Title = "Max Distance", Min = 100, Max = 3000, Default = CFG.veil_maxdist, Callback = function(v) CFG.veil_maxdist = v; save() end})
+TKil:Tog("veil_on", {Title = "Enable Veil", Default = CFG.veil_on})
+TKil:Tog("veil_show_fov", {Title = "Show FOV Circle", Default = CFG.veil_show_fov})
+TKil:Sl("veil_fov", {Title = "FOV", Min = 1, Max = 600, Default = CFG.veil_fov})
+TKil:Sl("veil_predict", {Title = "Predict x10", Min = 10, Max = 50, Default = math.floor((CFG.veil_predict or 2.8) * 10)})
+TKil:Sl("veil_maxdist", {Title = "Max Distance", Min = 100, Max = 3000, Default = CFG.veil_maxdist})
 
 TEsp:Sec("Player ESP")
-TEsp:Tog("esp_k", {Title = "Killer ESP", Default = CFG.esp_k, Callback = function(v) CFG.esp_k = v; save() end})
-TEsp:Tog("esp_s", {Title = "Survivor ESP", Default = CFG.esp_s, Callback = function(v) CFG.esp_s = v; save() end})
-TEsp:Tog("esp_item", {Title = "Show Item Name", Default = CFG.esp_item, Callback = function(v) CFG.esp_item = v; save() end})
+TEsp:Tog("esp_k", {Title = "Killer ESP", Default = CFG.esp_k})
+TEsp:Tog("esp_s", {Title = "Survivor ESP", Default = CFG.esp_s})
+TEsp:Tog("esp_item", {Title = "Show Item Name", Default = CFG.esp_item})
 
 TEsp:Sec("Generator ESP")
-TEsp:Tog("esp_g", {Title = "Generator ESP", Default = CFG.esp_g, Callback = function(v) CFG.esp_g = v; save() end})
-TEsp:Tog("esp_gen_txt", {Title = "Show Progress Text", Default = CFG.esp_gen_txt, Callback = function(v) CFG.esp_gen_txt = v; save() end})
+TEsp:Tog("esp_g", {Title = "Generator ESP", Default = CFG.esp_g})
+TEsp:Tog("esp_gen_txt", {Title = "Show Progress Text", Default = CFG.esp_gen_txt})
 
 TEsp:Sec("Style")
-TEsp:Tog("esp_out", {Title = "Outline Only", Default = CFG.esp_out, Callback = function(v) CFG.esp_out = v; save() end})
+TEsp:Tog("esp_out", {Title = "Outline Only", Default = CFG.esp_out})
 
 TMisc:Sec("Vision")
-TMisc:Tog("fov_lock", {Title = "FOV Lock", Default = CFG.fov_lock, Callback = function(v) CFG.fov_lock = v; save() end})
-TMisc:Sl("fov_value", {Title = "FOV Value", Min = 60, Max = 140, Default = CFG.fov_value, Callback = function(v) CFG.fov_value = v; save() end})
-TMisc:Tog("ambient", {Title = "Bright Ambient", Default = CFG.ambient, Callback = function(v) CFG.ambient = v; save() end})
-TMisc:Tog("boost_fps", {Title = "Boost FPS", Default = CFG.boost_fps, Callback = function(v)
-    CFG.boost_fps = v; save()
-    pcall(function() if v then setfpscap(240) else setfpscap(0) end end)
-end})
+TMisc:Tog("fov_lock", {Title = "FOV Lock", Default = CFG.fov_lock})
+TMisc:Sl("fov_value", {Title = "FOV Value", Min = 60, Max = 140, Default = CFG.fov_value})
+TMisc:Tog("ambient", {Title = "Bright Ambient", Default = CFG.ambient})
+TMisc:Tog("boost_fps", {Title = "Boost FPS", Default = CFG.boost_fps})
 
 TMisc:Sec("Alerts")
-TMisc:Tog("alert", {Title = "Proximity Alert", Default = CFG.alert, Callback = function(v) CFG.alert = v; save() end})
-TMisc:Tog("stun_on", {Title = "Stun Killer Notif", Default = CFG.stun_on, Callback = function(v) CFG.stun_on = v; save() end})
+TMisc:Tog("alert", {Title = "Proximity Alert", Default = CFG.alert})
+TMisc:Tog("stun_on", {Title = "Stun Killer Notif", Default = CFG.stun_on})
 
 W:Show("Info")
 
--- ============================================================
--- FLOATING BUTTON (TRANSPARAN KOTAK)
--- ============================================================
+-- FLOATING BUTTON
 local FG = Instance.new("ScreenGui")
 FG.Name = "KZ_Float"
 FG.ResetOnSpawn = false; FG.IgnoreGuiInset = true
@@ -422,19 +427,15 @@ if not FG.Parent then FG.Parent = PG end
 
 local FB = Instance.new("TextButton", FG)
 FB.Size = UDim2.fromOffset(60, 60); FB.Position = UDim2.new(0, 20, 0.5, -30)
-FB.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-FB.BackgroundTransparency = 0.35
+FB.BackgroundColor3 = Color3.fromRGB(0, 0, 0); FB.BackgroundTransparency = 0.35
 FB.Text = "KZ"; FB.TextColor3 = Color3.fromRGB(255, 255, 255)
 FB.Font = Enum.Font.GothamBlack; FB.TextSize = 28
-FB.TextStrokeTransparency = 0
-FB.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+FB.TextStrokeTransparency = 0; FB.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 FB.AutoButtonColor = false; FB.Active = true; FB.Visible = false
 FB.ZIndex = 10
 addStroke(FB, 3, Color3.fromRGB(255, 255, 255))
 FB.UIStroke.Transparency = 0.4
-
-local fbCorner = Instance.new("UICorner", FB)
-fbCorner.CornerRadius = UDim.new(0, 8)
+local fbCorner = Instance.new("UICorner", FB); fbCorner.CornerRadius = UDim.new(0, 8)
 
 local fD, fStart, fPos, fMoved = false, nil, nil, false
 FB.InputBegan:Connect(function(i)
@@ -454,138 +455,63 @@ end)
 UIS.InputEnded:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
         if fD and not fMoved then
-            Main.Visible = true
-            FB.Visible = false
+            Main.Visible = true; FB.Visible = false
         end
         fD = false
         task.delay(0.1, function() fMoved = false end)
     end
 end)
 
--- ============================================================
--- TOMBOL CLOSE & MINIMIZE
--- ============================================================
-ClsBtn.MouseButton1Click:Connect(function()
-    Main.Visible = false
-    FB.Visible = true
-end)
+ClsBtn.MouseButton1Click:Connect(function() Main.Visible = false; FB.Visible = true end)
+MinBtn.MouseButton1Click:Connect(function() Main.Visible = false; FB.Visible = true end)
 
-MinBtn.MouseButton1Click:Connect(function()
-    Main.Visible = false
-    FB.Visible = true
-end)
+_G.KZ_ToggleUI = function()
+    if Main.Visible then Main.Visible = false; FB.Visible = true
+    else Main.Visible = true; FB.Visible = false end
+end
 
--- Toggle via RightShift
 UIS.InputBegan:Connect(function(i, g)
     if g then return end
-    if i.KeyCode == Enum.KeyCode.V then CFG.tof_on = not CFG.tof_on; save() end
-    if i.KeyCode == Enum.KeyCode.B then CFG.veil_on = not CFG.veil_on; save() end
-    if i.KeyCode == Enum.KeyCode.P then if _G.KZ_ManualParry then _G.KZ_ManualParry() end end
-    if i.KeyCode == Enum.KeyCode.RightShift then
-        if Main.Visible then
-            Main.Visible = false
-            FB.Visible = true
-        else
-            Main.Visible = true
-            FB.Visible = false
-        end
-    end
+    if i.KeyCode == Enum.KeyCode.RightShift then if _G.KZ_ToggleUI then _G.KZ_ToggleUI() end end
 end)
 
 -- ============================================================
--- UI ANTI ILANG (WATCHDOG + RESPAWN PROTECTION)
+-- ANTI ILANG (WATCHDOG)
 -- ============================================================
 do
     local NamesToProtect = { "KalzzHub_Main", "KZ_Float", "KZ_Aim_FOV", "KZ_ToF_FOV", "KZ_Alert", "KZ_StunToast" }
-
     local function isProtectedGui(g)
         if not g:IsA("ScreenGui") then return false end
         local n = g.Name
-        for _, key in ipairs(NamesToProtect) do
-            if n == key then return true end
-        end
-        if n:find("KZ_") or n:find("KalzzHub") or n:find("KALZZ") then
-            return true
-        end
-        return false
+        for _, key in ipairs(NamesToProtect) do if n == key then return true end end
+        return n:find("KZ_") or n:find("KalzzHub") or n:find("KALZZ")
     end
-
     local function protect(g)
         if not g or not isProtectedGui(g) then return end
         pcall(function() g.ResetOnSpawn = false end)
         pcall(function() g.IgnoreGuiInset = true end)
         pcall(function()
-            local target
-            if gethui then target = gethui() else target = PG end
+            local target = gethui and gethui() or PG
             if g.Parent ~= target then g.Parent = target end
         end)
         pcall(function() g.Enabled = true end)
     end
-
     local function scanAndProtect()
         local parents = { PG, CoreGui }
         pcall(function() if gethui then table.insert(parents, gethui()) end end)
         for _, parent in ipairs(parents) do
             if parent then
-                for _, g in ipairs(parent:GetChildren()) do
-                    if isProtectedGui(g) then protect(g) end
-                end
+                for _, g in ipairs(parent:GetChildren()) do if isProtectedGui(g) then protect(g) end end
             end
         end
     end
-
-    -- Initial scan + retry
-    task.spawn(function()
-        for _ = 1, 25 do
-            scanAndProtect()
-            task.wait(0.2)
-        end
-    end)
-
-    -- Respawn protection
+    task.spawn(function() for _ = 1, 25 do scanAndProtect(); task.wait(0.2) end end)
     game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function()
-        task.defer(function()
-            task.wait(0.3)
-            scanAndProtect()
-            if GUI and GUI.Parent == nil then
-                pcall(function() GUI.Parent = PG end)
-            end
-            if FG and FG.Parent == nil then
-                pcall(function() FG.Parent = PG end)
-            end
-            Main.Visible = true
-            FB.Visible = false
-        end)
+        task.defer(function() task.wait(0.3); scanAndProtect(); Main.Visible = true; FB.Visible = false end)
     end)
-
-    -- Watchdog tiap 2 detik
-    task.spawn(function()
-        while task.wait(2) do
-            scanAndProtect()
-            if Main and Main.Size ~= UDim2.new(0, 580, 0, 480) then
-                Main.Size = UDim2.new(0, 580, 0, 480)
-            end
-        end
-    end)
-
-    -- Auto-protect ScreenGui baru di PG
-    PG.ChildAdded:Connect(function(child)
-        if child:IsA("ScreenGui") and isProtectedGui(child) then
-            task.defer(function() protect(child) end)
-        end
-    end)
-    pcall(function()
-        if gethui then
-            gethui().ChildAdded:Connect(function(child)
-                if child:IsA("ScreenGui") and isProtectedGui(child) then
-                    task.defer(function() protect(child) end)
-                end
-            end)
-        end
-    end)
-
-    print("[KZ UI] Anti-ilang aktif (watchdog + respawn protection)")
+    task.spawn(function() while task.wait(2) do scanAndProtect() end end)
+    PG.ChildAdded:Connect(function(c) if c:IsA("ScreenGui") and isProtectedGui(c) then task.defer(function() protect(c) end) end end)
 end
 
-print("[KZ UI] Neo-Brutalism loaded + Anti-Ilang")
+print("[KZ UI] Neo-Brutalism + Realtime Config Connected")
 return true
