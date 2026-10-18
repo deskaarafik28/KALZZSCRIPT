@@ -1,15 +1,15 @@
 -- ====================================================
--- SILENT VEIL (FULL) - NO HOOK (FIXED LOGIC)
+-- SILENT VEIL (FULL) - NO HOOK (FIXED RSvc & Scheduler)
 -- ====================================================
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
+-- Ambil Global State
 local S = _G.KZ or {}
 local CFG = _G.KALZZ_CFG or {}
 
--- State global untuk dibaca main.lua
 _G.KZ_VeilState = _G.KZ_VeilState or { target = nil, lookVector = nil, velHistory = {} }
 local VeilState = _G.KZ_VeilState
 
@@ -32,6 +32,20 @@ pcall(function()
     V.TrackerDotOutline = Drawing.new("Circle"); V.TrackerDotOutline.Color = BLACK; V.TrackerDotOutline.Thickness = 3; V.TrackerDotOutline.Filled = false; V.TrackerDotOutline.Transparency = 0.3; V.TrackerDotOutline.Radius = 6; V.TrackerDotOutline.NumSides = 20; V.TrackerDotOutline.Visible = false
     V.TrackerLine = Drawing.new("Line"); V.TrackerLine.Color = ACCENT; V.TrackerLine.Thickness = 1.5; V.TrackerLine.Transparency = 0.6; V.TrackerLine.Visible = false
 end)
+
+local function Veil_IsSurvivorVeil(p)
+    -- ⭐ FIX: Cek pakai Role, bukan cuma string Team
+    if not p or p == LocalPlayer or not p.Character then return false end
+    local role = p.Character:GetAttribute("Role") or p:GetAttribute("Role")
+    if type(role) == "string" then
+        if role:lower():find("survivor") then return true end
+        if role:lower():find("killer") then return false end
+    end
+    if p.Team and p.Team.Name then
+        return string.find(string.lower(p.Team.Name), "survivor", 1, true) ~= nil
+    end
+    return false
+end
 
 local function Veil_solvePitch(p, d, dy)
     d = math.max(d, 0.1)
@@ -68,9 +82,9 @@ end)
 local function Veil_HideFOV()
     local V = VeilVisuals
     local OFF = Vector2.new(-9999, -9999)
-    if V.FOVOuterRing then V.FOVOuterRing.Visible = false; V.FOVOuterRing.Position = OFF; V.FOVOuterRing.Radius = 0 end
-    if V.FOVMainRing then V.FOVMainRing.Visible = false; V.FOVMainRing.Position = OFF; V.FOVMainRing.Radius = 0 end
-    if V.FOVInnerRing then V.FOVInnerRing.Visible = false; V.FOVInnerRing.Position = OFF; V.FOVInnerRing.Radius = 0 end
+    if V.FOVOuterRing then V.FOVOuterRing.Visible = false; V.FOVOuterRing.Position = OFF; V.FOVOuterRing.Radius = 0; V.FOVOuterRing.Transparency = 1 end
+    if V.FOVMainRing then V.FOVMainRing.Visible = false; V.FOVMainRing.Position = OFF; V.FOVMainRing.Radius = 0; V.FOVMainRing.Transparency = 1 end
+    if V.FOVInnerRing then V.FOVInnerRing.Visible = false; V.FOVInnerRing.Position = OFF; V.FOVInnerRing.Radius = 0; V.FOVInnerRing.Transparency = 1 end
     if V.FOVCrossLines then for _, s in ipairs(V.FOVCrossLines) do s.Visible = false; s.From = OFF; s.To = OFF end end
     if V.FOVTicks then for _, s in ipairs(V.FOVTicks) do s.Visible = false; s.From = OFF; s.To = OFF end end
 end
@@ -78,8 +92,8 @@ end
 local function Veil_HideTracker()
     local V = VeilVisuals
     local OFF = Vector2.new(-9999, -9999)
-    if V.TrackerOuterRing then V.TrackerOuterRing.Visible = false; V.TrackerOuterRing.Position = OFF; V.TrackerOuterRing.Radius = 0 end
-    if V.TrackerMainRing then V.TrackerMainRing.Visible = false; V.TrackerMainRing.Position = OFF; V.TrackerMainRing.Radius = 0 end
+    if V.TrackerOuterRing then V.TrackerOuterRing.Visible = false; V.TrackerOuterRing.Position = OFF; V.TrackerOuterRing.Radius = 0; V.TrackerOuterRing.Transparency = 1 end
+    if V.TrackerMainRing then V.TrackerMainRing.Visible = false; V.TrackerMainRing.Position = OFF; V.TrackerMainRing.Radius = 0; V.TrackerMainRing.Transparency = 1 end
     if V.TrackerDotFill then V.TrackerDotFill.Visible = false; V.TrackerDotFill.Position = OFF; V.TrackerDotFill.Radius = 0 end
     if V.TrackerDotOutline then V.TrackerDotOutline.Visible = false; V.TrackerDotOutline.Position = OFF; V.TrackerDotOutline.Radius = 0 end
     if V.TrackerLine then V.TrackerLine.Visible = false; V.TrackerLine.From = OFF; V.TrackerLine.To = OFF end
@@ -90,12 +104,10 @@ local function Veil_HideAllVisuals() Veil_HideFOV(); Veil_HideTracker() end
 local function Veil_UpdateFOVVisuals(center)
     local V = VeilVisuals
     if not V.FOVOuterRing then return end
-    -- ⭐ AMBIL DARI CONFIG UI ⭐
-    local radius = CFG.veil_fov or 320
+    local radius = CFG.veil_fov or 320 -- Ambil dari UI
     local t = tick()
     local pulse = (math.sin(t * 3) + 1) * 0.5
     local slowPulse = (math.sin(t * 1.2) + 1) * 0.5
-    
     V.FOVOuterRing.Position = center; V.FOVOuterRing.Radius = radius + 2; V.FOVOuterRing.Transparency = 0.3 + pulse * 0.15; V.FOVOuterRing.Visible = true
     V.FOVMainRing.Position = center; V.FOVMainRing.Radius = radius; V.FOVMainRing.Transparency = 0.7 + pulse * 0.25; V.FOVMainRing.Visible = true
     V.FOVInnerRing.Position = center; V.FOVInnerRing.Radius = radius - 10; V.FOVInnerRing.Transparency = 0.25 + slowPulse * 0.2; V.FOVInnerRing.Visible = true
@@ -127,9 +139,9 @@ local function Veil_UpdateTrackerVisuals(targetScreenPos, dist)
 end
 
 local function Veil_UpdateAimbot()
-    -- ⭐ FIX: Cek killer pakai fungsi global S, fallback ke team
-    local isKiller = S.isLocalKiller and S.isLocalKiller() or (LocalPlayer.Team and LocalPlayer.Team.Name:lower():find("killer"))
-    if not isKiller then
+    -- ⭐ FIX: Fallback cek killer
+    local isLocalKiller = S.isLocalKiller and S.isLocalKiller() or (LocalPlayer.Team and LocalPlayer.Team.Name:lower():find("killer"))
+    if not isLocalKiller then
         VeilState.target = nil; VeilState.lookVector = nil
         Veil_HideAllVisuals(); return
     end
@@ -154,9 +166,7 @@ local function Veil_UpdateAimbot()
     local bestStudDist = CFG.veil_maxdist or 2000
     
     for _, p in ipairs(Players:GetPlayers()) do
-        -- ⭐ FIX: Cek survivor pakai S.isKiller
-        local isTargetKiller = S.isKiller and S.isKiller(p) or (p.Team and p.Team.Name:lower():find("killer"))
-        if p ~= LocalPlayer and not isTargetKiller and p.Character then
+        if p ~= LocalPlayer and Veil_IsSurvivorVeil(p) and p.Character then
             local pc = p.Character
             local isDown = pc:GetAttribute("Knocked") == true or pc:GetAttribute("HookProgressDepleting") == true
             if not isDown then
@@ -182,11 +192,10 @@ local function Veil_UpdateAimbot()
         local origin = (hand and hand:IsA("BasePart")) and hand.Position or hrp.Position
         local dir = tp - origin
         local dist = dir.Magnitude
-        
-        if dist > 0.1 and dist <= bestStudDist then
+        if dist > 0.1 and dist <= (CFG.veil_maxdist or 2000) then
             local isAuraActive = char:GetAttribute("special") == true
             local prof
-            -- ⭐ Logic ballistic pake data config
+            -- Balistik Spear
             if isAuraActive then
                 prof = { v0 = 165, g = 96.5, windup = 0.10, latency = 0.04, maxlead = 25, scale = 1.4 }
             else
@@ -212,13 +221,12 @@ local function Veil_UpdateAimbot()
                     delay = t2 + prof.windup + ping + prof.latency
                 end
             end
-            
             local adir = aimPoint - origin
             local ah = Vector3.new(adir.X, 0, adir.Z)
             local ahDist = ah.Magnitude
             local pitch = Veil_solvePitch(prof, ahDist, adir.Y)
             
-            -- ⭐ STATE YANG DIBACA MAIN.LUA ⭐
+            -- State dibaca main.lua
             if ahDist > 0.001 then 
                 VeilState.lookVector = ah.Unit * math.cos(pitch) + Vector3.new(0, math.sin(pitch), 0)
             else 
@@ -244,7 +252,7 @@ local function Veil_UpdateAimbot()
     end
 end
 
--- ⭐ PAKAI RUNSERVICE LANGSUNG (Gak butuh Scheduler)
+-- ⭐ FIX UTAMA: Panggil RunService langsung, buang Scheduler
 local lastAim = 0
 RunService.Heartbeat:Connect(function()
     local now = os.clock()
@@ -253,3 +261,5 @@ RunService.Heartbeat:Connect(function()
         pcall(Veil_UpdateAimbot)
     end
 end)
+
+print("[KZ] silent-aim-veil loaded (Fixed RSvc & Scheduler)")
