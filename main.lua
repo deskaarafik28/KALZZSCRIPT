@@ -1,4 +1,4 @@
---[[ KALZZSCRIPT | main.lua | UNIFIED HOOK + CONFIG GABUNG ]]
+--[[ KALZZSCRIPT | main.lua | UNIFIED HOOK + CONFIG GABUNG + ANTI-BUG PISTOL ]]
 
 local HttpService = game:GetService("HttpService")
 local BASE_URL = "https://raw.githubusercontent.com/deskaarafik28/KALZZSCRIPT/refs/heads/main/modules/"
@@ -187,13 +187,12 @@ S.isLocalKiller = function()
     return _G.GetRole() == "Killer"
 end
 
--- No-op untuk module lama yang mungkin masih panggil S.NewHook
 S.NewHook = function() return nil end
 
 _G.KZ = S
 
 -- ============================================================
--- 5. UNIFIED HOOK (HANYA 1 NAMECALL)
+-- 5. UNIFIED HOOK (HANYA 1 NAMECALL) - FIXED PISTOL BUG
 -- ============================================================
 do
     if typeof(hookmetamethod) == "function" and typeof(newcclosure) == "function" then
@@ -213,8 +212,16 @@ do
             local sName = ""
             pcall(function() sName = tostring(self.Name or "") end)
 
+            -- ⭐ CEK TOOL YANG LAGI DIPEGANG
+            local char = S.LP.Character
+            local tool = char and char:FindFirstChildOfClass("Tool")
+            local toolName = tool and tostring(tool.Name):lower() or ""
+            
+            local isToFTool = toolName:find("twist") or toolName:find("fate") or toolName:find("tof")
+            local isVeilTool = toolName:find("veil") or toolName:find("spear") or toolName:find("dagger")
+
             -- === 1. VEIL SPEAR (KILLER) ===
-            if sName == "Spearthrow" and CFG.veil_on and _G.GetRole() == "Killer" then
+            if sName == "Spearthrow" and CFG.veil_on and _G.GetRole() == "Killer" and isVeilTool then
                 local dir = _G.KZ_VeilState and _G.KZ_VeilState.lookVector
                 if typeof(dir) == "Vector3" then
                     local args = table.pack(...)
@@ -226,20 +233,27 @@ do
             end
 
             -- === 2. ToF (SURVIVOR) ===
-            if (sName == "Fire" or sName == "Shoot") and CFG.tof_on and _G.GetRole() == "Survivor" then
+            if (sName == "Fire" or sName == "Shoot") and CFG.tof_on and _G.GetRole() == "Survivor" and isToFTool then
                 local fn = ""
                 pcall(function() fn = self:GetFullName():lower() end)
-                if fn:find("twist") or fn:find("fate") or fn:find("tof") then
+                local isRemoteToF = fn:find("twist") or fn:find("fate") or fn:find("tof")
+                
+                if isRemoteToF then
                     local dir = _G.KZ_ToFAimDir
                     if typeof(dir) == "Vector3" then
                         local args = table.pack(...)
+                        local changed = false
                         for i = 1, args.n do
+                            -- Magnitude <= 5 (cuma ngeganti vektor arah, bukan velocity/posisi)
                             if typeof(args[i]) == "Vector3" and args[i].Magnitude <= 5 then
                                 args[i] = dir
+                                changed = true
                                 break
                             end
                         end
-                        return OLD(self, table.unpack(args, 1, args.n))
+                        if changed then
+                            return OLD(self, table.unpack(args, 1, args.n))
+                        end
                     end
                 end
             end
@@ -248,7 +262,7 @@ do
             if sName == "VaultEvent" and CFG.fast_vault then
                 local args = table.pack(...)
                 if typeof(args[2]) == "boolean" then
-                    args[2] = true -- Paksa selalu fast
+                    args[2] = true
                 end
                 return OLD(self, table.unpack(args, 1, args.n))
             end
@@ -256,7 +270,7 @@ do
             return OLD(self, ...)
         end))
 
-        print("[KZ] Unified Hook Installed (1x Namecall)")
+        print("[KZ] Unified Hook Installed (1x Namecall + Anti-Bug Pistol)")
     else
         warn("[KZ] hookmetamethod tidak tersedia")
     end
