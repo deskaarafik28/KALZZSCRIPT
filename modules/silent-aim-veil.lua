@@ -239,4 +239,12 @@ end
 -- ⭐ JANGAN LUPA TAMBAHIN HOOK-NYA DI MAIN.LUA LU (KAYAK INSTRUKSI SEBELUMNYA)
 -- Veil_setupInterceptor() dihapus dari sini.
 
-Scheduler:Add("VeilAim", Veil_UpdateAimbot, 0.033)
+-- ⭐ FIX: Pakai Heartbeat langsung, bypass Scheduler
+local lastUpdate = 0
+S.RSvc.Heartbeat:Connect(function()
+    local now = os.clock()
+    if now - lastUpdate >= 0.033 then
+        lastUpdate = now
+        pcall(Veil_UpdateAimbot)
+    end
+end)
