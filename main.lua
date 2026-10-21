@@ -1,4 +1,4 @@
---[[ KALZZSCRIPT | main.lua | HOOK MIRIP V5 FINAL ]]
+
 
 local HttpService = game:GetService("HttpService")
 local BASE_URL = "https://raw.githubusercontent.com/deskaarafik28/KALZZSCRIPT/refs/heads/main/modules/"
@@ -259,5 +259,5 @@ task.spawn(function()
         loadModule(name)
         task.wait(0.05)
     end
-    print("[KZ] All Modules Loaded (V5 Style).")
+    print("[KZ] All Modules Loaded")
 end)
