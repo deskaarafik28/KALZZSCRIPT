@@ -1,5 +1,5 @@
 -- ====================================================
--- SILENT VEIL (FULL) - NO HOOK (FIXED RSvc & Scheduler)
+-- SILENT VEIL (FULL) - NO HOOK (FIXED RSvc & Scheduler) KALZZ GANTEMG BET JIAHHAHA
 -- ====================================================
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
