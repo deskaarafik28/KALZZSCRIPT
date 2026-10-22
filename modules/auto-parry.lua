@@ -1,7 +1,6 @@
 -- ======================
--- AUTO PARRY • AGRESIF + BYPASS (FIXED & OPTIMIZED)
--- detect kencang • CD habis = langsung bisa lagi
--- skip vault / pallet / gen / gate
+-- AUTO PARRY • GANAS + BYPASS HOOK
+-- vault/pallet/gene/hook = tidak dagger
 -- ======================
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -13,7 +12,7 @@ local PG = LP:WaitForChild("PlayerGui")
 
 local CFG = _G.KALZZ_CFG or {}
 if CFG.parry_on == nil then CFG.parry_on = true end
-CFG.parry_radius = CFG.parry_radius or 15
+CFG.parry_radius = CFG.parry_radius or 16
 if CFG.parry_aggro == nil then CFG.parry_aggro = true end
 if CFG.parry_antifake == nil then CFG.parry_antifake = true end
 if CFG.parry_show_circle == nil then CFG.parry_show_circle = true end
@@ -30,13 +29,12 @@ local VALID = {
     ["80411309607666"]="special",["101344487600812"]="special",
 }
 
--- window LEBAR + commit AWAL (agresif)
 local WIN = {
-    lunge   = {0.05, 0.78},
-    basic   = {0.08, 0.80},
-    frenzy  = {0.04, 0.82},
-    special = {0.06, 0.78},
-    default = {0.06, 0.80},
+    lunge   = {0.02, 0.88},
+    basic   = {0.03, 0.90},
+    frenzy  = {0.01, 0.90},
+    special = {0.02, 0.88},
+    default = {0.02, 0.90},
 }
 
 local function root(m)
@@ -49,18 +47,24 @@ local function isKillerModel(m)
     local plr = Players:GetPlayerFromCharacter(m)
     if plr then
         if plr == LP then return false end
-        if plr.Team and plr.Team.Name == "Killer" then return true end
         local r = m:GetAttribute("Role") or plr:GetAttribute("Role")
-        if type(r) == "string" and r:lower():find("killer") then return true end
-        if plr.Team and plr.Team.Name and plr.Team.Name:lower():find("killer") then return true end
+        if type(r) == "string" then
+            local rl = r:lower()
+            if rl:find("killer") then return true end
+            if rl:find("survivor") then return false end
+        end
+        if plr.Team and plr.Team.Name then
+            local t = plr.Team.Name:lower()
+            if t:find("killer") then return true end
+            if t:find("survivor") then return false end
+        end
         return false
     end
     local r = m:GetAttribute("Role")
-    -- ⭐ FIX TYPO BACKSLASH
+    -- ⭐ FIX TYPO: Hapus backslash
     return type(r) == "string" and r:lower():find("killer") ~= nil
 end
 
--- BYPASS: vault / window / pallet / gen / gate / down
 local function busy()
     local ch = LP.Character
     if not ch then return true end
@@ -68,26 +72,27 @@ local function busy()
     if not hum or hum.Health <= 0 then return true end
 
     for _, a in ipairs({
-        "Knocked","Downed","Hooked","Carried","IsCarried",
+        "Knocked","Downed","Hooked","Carried","IsCarried","OnHook",
         "Repairing","Healing","OpeningGate","Interacting",
-        "Vaulting","OnWindow","OnPallet",
+        "Vaulting","OnWindow","OnPallet","DroppingPallet",
     }) do
         local v = ch:GetAttribute(a)
         if v == true or v == 1 then return true end
     end
 
-    local st = hum:GetState()
-    if st == Enum.HumanoidStateType.Climbing then return true end
+    if hum:GetState() == Enum.HumanoidStateType.Climbing then return true end
 
     local an = hum:FindFirstChildOfClass("Animator")
     if an then
-        local ok, tr = pcall(function() return an:GetPlayingAnimationTracks() end)
-        if ok and tr then
-            for _, t in ipairs(tr) do
+        local ok, tracks = pcall(function() return an:GetPlayingAnimationTracks() end)
+        if ok and tracks then
+            for _, t in ipairs(tracks) do
                 local n = ((t.Animation and t.Animation.Name) or ""):lower()
                 if n:find("vault") or n:find("window") or n:find("pallet")
                     or n:find("generator") or n:find("repair") or n:find("gate")
-                    or n:find("open") or n:find("heal") or n:find("medkit") then
+                    or n:find("open") or n:find("heal") or n:find("medkit")
+                    or n:find("drop") or n:find("hook") or n:find("sacrifice")
+                    or n:find("carry") or n:find("pickup") then
                     return true
                 end
             end
@@ -106,9 +111,9 @@ local attached = {}
 local function doP(key)
     if not CFG.parry_on or busy() then return end
     local now = os.clock()
-    local cd = CFG.parry_aggro and 0.01 or 0.03
+    local cd = CFG.parry_aggro and 0.008 or 0.025
     if now - lastParry < cd then return end
-    if key and fired[key] and (now - fired[key]) < 0.35 then return end
+    if key and fired[key] and (now - fired[key]) < 0.28 then return end
 
     lastParry = now
     if key then fired[key] = now end
@@ -126,7 +131,9 @@ local function doP(key)
         local b = c:FindFirstChild("Gui-mob") or c:FindFirstChildWhichIsA("ImageButton")
         if b and typeof(firesignal) == "function" then
             firesignal(b.MouseButton1Down)
-            task.defer(function() firesignal(b.MouseButton1Up) end)
+            task.defer(function()
+                pcall(function() firesignal(b.MouseButton1Up) end)
+            end)
         end
     end)
 end
@@ -140,11 +147,15 @@ end
 local function shouldParry(t, kind, m)
     if not t or not t.IsPlaying then return false end
     if busy() then return false end
-    if distTo(m) > (CFG.parry_radius or 15) + 2.2 then return false end
+
+    local d = distTo(m)
+    local rad = (CFG.parry_radius or 16) + (CFG.parry_aggro and 2.8 or 1.5)
+    if d > rad then return false end
 
     local len = t.Length
-    if len and len > 0.05 then
-        local look = (kind == "lunge" or kind == "frenzy") and 0.035 or 0.022
+    if len and len > 0.04 then
+        local look = CFG.parry_aggro and 0.045 or 0.028
+        if kind == "lunge" or kind == "frenzy" then look = look + 0.012 end
         local a = ((t.TimePosition or 0) + look) / len
         local w = WIN[kind] or WIN.default
         if a < w[1] or a > w[2] then return false end
@@ -154,10 +165,10 @@ local function shouldParry(t, kind, m)
         local kr, mr = root(m), root(LP.Character)
         if kr and mr then
             local to = flat(mr.Position - kr.Position)
-            if to.Magnitude > 0.3 then
+            if to.Magnitude > 0.35 then
                 local look = flat(kr.CFrame.LookVector)
-                if look.Magnitude > 0.05 and look.Unit:Dot(to.Unit) < -0.4 then
-                    return false
+                if look.Magnitude > 0.05 and look.Unit:Dot(to.Unit) < -0.55 then
+                    if d > 6 then return false end
                 end
             end
         end
@@ -174,6 +185,10 @@ local function onAnim(t, m)
     local key = tostring(t) .. "_" .. id
     fired[key] = nil
 
+    if shouldParry(t, kind, m) then
+        doP(key)
+    end
+
     local conn
     conn = RunService.Heartbeat:Connect(function()
         if not CFG.parry_on or not t.IsPlaying then
@@ -189,7 +204,7 @@ local function onAnim(t, m)
         fired[key] = nil
         if conn then conn:Disconnect() end
     end)
-    task.delay(2.5, function()
+    task.delay(2.2, function()
         fired[key] = nil
         if conn then pcall(function() conn:Disconnect() end) end
     end)
@@ -204,24 +219,42 @@ local function bind(m)
         local hum = m:FindFirstChildOfClass("Humanoid")
         if not hum then return end
         local an = hum:FindFirstChildOfClass("Animator")
-        for _ = 1, 30 do
+        for _ = 1, 25 do
             if an then break end
-            task.wait(0.1)
+            task.wait(0.08)
             an = hum:FindFirstChildOfClass("Animator")
             if not m.Parent then return end
         end
         if not an then attached[m] = nil return end
 
-        -- ⭐ FIX: Hapus loop while Heartbeat (Penyebab Utama Lag)
         an.AnimationPlayed:Connect(function(t)
             onAnim(t, m)
+        end)
+
+        task.spawn(function()
+            while m.Parent and attached[m] do
+                if CFG.parry_on and not busy() then
+                    local ok, tracks = pcall(function() return an:GetPlayingAnimationTracks() end)
+                    if ok and tracks then
+                        for _, t in ipairs(tracks) do
+                            if t.IsPlaying and t.Animation then
+                                local id = tostring(t.Animation.AnimationId or ""):match("%d+") or ""
+                                if VALID[id] then
+                                    onAnim(t, m)
+                                end
+                            end
+                        end
+                    end
+                end
+                task.wait(CFG.parry_aggro and 0.04 or 0.07)
+            end
         end)
     end)
 end
 
 local function scan()
     for _, p in ipairs(Players:GetPlayers()) do
-        -- ⭐ FIX TYPO BACKSLASH
+        -- ⭐ FIX TYPO: Hapus backslash
         if p ~= LP and p.Character and isKillerModel(p.Character) then
             bind(p.Character)
         end
@@ -232,27 +265,27 @@ scan()
 Players.PlayerAdded:Connect(function(p)
     p.CharacterAdded:Connect(function(c)
         attached[c] = nil
-        task.wait(0.15)
+        task.wait(0.12)
         if isKillerModel(c) then bind(c) end
     end)
 end)
 for _, p in ipairs(Players:GetPlayers()) do
     p.CharacterAdded:Connect(function(c)
         attached[c] = nil
-        task.wait(0.15)
+        task.wait(0.12)
         if isKillerModel(c) then bind(c) end
     end)
 end
 
 task.spawn(function()
-    while task.wait(0.4) do scan() end
+    while task.wait(0.35) do scan() end
 end)
 
 task.spawn(function()
-    while task.wait(1) do
+    while task.wait(1.2) do
         local now = os.clock()
         for k, t in pairs(fired) do
-            if now - t > 1.5 then fired[k] = nil end
+            if now - t > 1.2 then fired[k] = nil end
         end
     end
 end)
@@ -261,9 +294,7 @@ UIS.InputBegan:Connect(function(i, g)
     if not g and i.KeyCode == Enum.KeyCode.P then doP() end
 end)
 
--- ======================
--- RADIUS CIRCLE (OPTIMIZED 1 PART)
--- ======================
+-- RADIUS CIRCLE
 local oldBase = workspace:FindFirstChild("KZ_ParryRing_Base")
 if oldBase then oldBase:Destroy() end
 
@@ -291,7 +322,6 @@ ring.AnchorPoint = Vector2.new(0.5, 0.5)
 ring.Position = UDim2.fromScale(0.5, 0.5)
 ring.Size = UDim2.fromScale(0.96, 0.96)
 ring.BackgroundTransparency = 1
-ring.BorderSizePixel = 0
 Instance.new("UICorner", ring).CornerRadius = UDim.new(1, 0)
 
 local stroke = Instance.new("UIStroke", ring)
@@ -313,31 +343,25 @@ local function killerInRange(radius)
     return false
 end
 
--- Update visual pakai Heartbeat biar gak berat
-local lastVisUpdate = 0
+local lastVis = 0
 RunService.Heartbeat:Connect(function()
     local now = os.clock()
-    if now - lastVisUpdate < 0.033 then return end
-    lastVisUpdate = now
+    if now - lastVis < 0.033 then return end
+    lastVis = now
 
     if not CFG.parry_show_circle or not CFG.parry_on then
         base.Transparency = 1
         return
     end
     local my = root(LP.Character)
-    if not my then
-        base.Transparency = 1
-        return
-    end
+    if not my then base.Transparency = 1 return end
 
-    local radius = CFG.parry_radius or 15
+    local radius = CFG.parry_radius or 16
     local threat = killerInRange(radius)
-    local col = threat and Color3.fromRGB(255, 55, 55) or Color3.fromRGB(70, 255, 130)
-    
+    stroke.Color = threat and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(70, 255, 130)
     base.Size = Vector3.new(radius * 2, 0.05, radius * 2)
     base.CFrame = CFrame.new(my.Position - Vector3.new(0, 2.95, 0))
     base.Transparency = 0
-    stroke.Color = col
 end)
 
-print("[KZ] Auto Parry AGRESIF • FIXED • bypass vault/pallet • Optimized Ring")
+print("[KZ] Auto Parry • bypass hook/vault/pallet • ganas")
