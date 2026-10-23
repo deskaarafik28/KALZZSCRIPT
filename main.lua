@@ -15,6 +15,7 @@ local MODULES = {
     "vision",
     "esp",
     "ui",
+    "logic",
 }
 
 local S = {
